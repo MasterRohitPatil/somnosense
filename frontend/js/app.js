@@ -282,29 +282,84 @@ async function loadDashboardData() {
     }
 }
 
+function updateConfidenceGauge(confidencePercent, statusClass) {
+    const gaugeCircle = document.getElementById('gaugeCircle');
+    const confidenceText = document.getElementById('diagConfidence');
+    if (!gaugeCircle || !confidenceText) return;
+
+    const circumference = 207.35;
+    const clamped = Math.max(0, Math.min(100, confidencePercent));
+    const targetOffset = circumference - (clamped / 100.0) * circumference;
+
+    gaugeCircle.className.baseVal = `gauge-fill ${statusClass}`;
+    
+    // Ensure smooth CSS transition
+    setTimeout(() => {
+        gaugeCircle.style.strokeDashoffset = targetOffset;
+    }, 40);
+
+    // Number counting animation
+    let startTimestamp = null;
+    const duration = 900;
+
+    function step(timestamp) {
+        if (!startTimestamp) startTimestamp = timestamp;
+        const progress = Math.min((timestamp - startTimestamp) / duration, 1.0);
+        const ease = 1 - Math.pow(1 - progress, 3);
+        const current = (ease * clamped).toFixed(1);
+        confidenceText.textContent = `${current}%`;
+        if (progress < 1.0) {
+            requestAnimationFrame(step);
+        } else {
+            confidenceText.textContent = `${clamped.toFixed(1)}%`;
+        }
+    }
+    requestAnimationFrame(step);
+}
+
 function renderDashboardCards(latestLog) {
     const badge = document.getElementById('dashDateBadge');
     if (badge) badge.textContent = `LAST ASSESSED: ${latestLog.log_date} | PATIENT: ${currentUser.name.toUpperCase()}`;
     
-    // 1. Diagnostic Readout Tile
+    // 1. Diagnostic Readout Tile & Animated Circular Gauge
     const diagVerdict = document.getElementById('diagVerdict');
-    const diagConfidence = document.getElementById('diagConfidence');
-    
-    if (diagVerdict && diagConfidence) {
-        if (latestLog.prediction.includes('Healthy')) {
+    const diagSubtext = document.getElementById('diagSubtext');
+    let confScore = 90.0;
+    let statusClass = 'normal';
+
+    if (latestLog.prediction.includes('Healthy')) {
+        statusClass = 'normal';
+        confScore = latestLog.prob_healthy;
+        if (diagVerdict) {
             diagVerdict.className = 'verdict-headline normal';
             diagVerdict.textContent = 'HEALTHY / OPTIMAL';
-            diagConfidence.textContent = `${latestLog.prob_healthy.toFixed(1)}%`;
-        } else if (latestLog.prediction.includes('Insomnia')) {
+        }
+        if (diagSubtext) {
+            diagSubtext.textContent = 'Circadian Stability & Normal Vascular Tone';
+        }
+    } else if (latestLog.prediction.includes('Insomnia')) {
+        statusClass = 'borderline';
+        confScore = latestLog.prob_insomnia;
+        if (diagVerdict) {
             diagVerdict.className = 'verdict-headline borderline';
             diagVerdict.textContent = 'INSOMNIA';
-            diagConfidence.textContent = `${latestLog.prob_insomnia.toFixed(1)}%`;
-        } else {
+        }
+        if (diagSubtext) {
+            diagSubtext.textContent = 'Nocturnal Arousal Signature Detected';
+        }
+    } else {
+        statusClass = 'abnormal';
+        confScore = latestLog.prob_apnea;
+        if (diagVerdict) {
             diagVerdict.className = 'verdict-headline abnormal';
             diagVerdict.textContent = 'SLEEP APNEA RISK';
-            diagConfidence.textContent = `${latestLog.prob_apnea.toFixed(1)}%`;
+        }
+        if (diagSubtext) {
+            diagSubtext.textContent = 'Elevated Pulse Pressure & Nocturnal Airway Resistance';
         }
     }
+
+    updateConfidenceGauge(confScore, statusClass);
 
     // 2. Plain English Layman Translation & Actionable Steps
     const laymanEl = document.getElementById('laymanSummaryText');
