@@ -1,0 +1,8 @@
+Date,Sleep_Duration_Hours,Sleep_Quality_Score,Physical_Activity_Minutes,Stress_Level,Resting_Heart_Rate,Daily_Steps,Systolic_BP,Diastolic_BP,Device_Notes
+2026-10-21,5.2,5,30,8,84,3400,136,88,Apple Watch Series 9 - Fragmented Sleep
+2026-10-22,5.4,5,35,7,82,4100,134,86,Apple Watch Series 9 - 2 nocturnal awakenings
+2026-10-23,4.9,4,20,9,86,2900,138,90,Apple Watch Series 9 - Elevated resting pulse
+2026-10-24,6.0,6,45,6,79,5200,130,85,Apple Watch Series 9 - Improved recovery
+2026-10-25,5.1,4,25,8,85,3100,137,89,Apple Watch Series 9 - Sleep onset latency 48m
+2026-10-26,5.3,5,30,8,83,3800,135,88,Apple Watch Series 9 - High stress index
+2026-10-27,5.0,4,20,8,85,3200,136,89,Apple Watch Series 9 - Synced via HealthKit
