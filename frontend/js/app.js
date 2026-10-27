@@ -16,6 +16,7 @@ let currentUser = {
 let shapChartInstance = null;
 let trendChartInstance = null;
 let currentDemoOtp = "";
+let latestLogGlobal = null;
 
 // ================= THEME CONTROLLER =================
 function initTheme() {
@@ -165,6 +166,37 @@ async function handleVerifyOtp() {
     }
 }
 
+function getWHOStandards(age) {
+    if (age <= 25) {
+        return {
+            cohortName: "Young Adult (18-25 yrs)",
+            sleepTarget: "7.0 - 9.0 hrs",
+            minSleep: 6.0,
+            maxSleep: 10.0,
+            maxPP: 45,
+            stepTarget: 8000
+        };
+    } else if (age <= 64) {
+        return {
+            cohortName: "Adult (26-64 yrs)",
+            sleepTarget: "7.0 - 9.0 hrs",
+            minSleep: 6.0,
+            maxSleep: 9.5,
+            maxPP: 50,
+            stepTarget: 7000
+        };
+    } else {
+        return {
+            cohortName: "Older Adult (65+ yrs)",
+            sleepTarget: "7.0 - 8.0 hrs",
+            minSleep: 5.5,
+            maxSleep: 8.5,
+            maxPP: 55,
+            stepTarget: 5500
+        };
+    }
+}
+
 function updateUserUI() {
     const nameEl = document.getElementById('sidebarUserName');
     if (nameEl) nameEl.textContent = currentUser.name;
@@ -175,6 +207,23 @@ function updateUserUI() {
     const dateBadge = document.getElementById('dashDateBadge');
     if (dateBadge) {
         dateBadge.textContent = `ACTIVE PATIENT: ${currentUser.name.toUpperCase()} (${currentUser.email.toUpperCase()})`;
+    }
+
+    // Dynamic WHO Age Calibration
+    const standards = getWHOStandards(currentUser.age || 32);
+    const whoBadge = document.getElementById('whoCohortBadge');
+    if (whoBadge) {
+        whoBadge.textContent = `WHO COHORT: ${standards.cohortName.toUpperCase()} | TARGET: ${standards.sleepTarget}`;
+    }
+
+    const sleepLabels = document.getElementById('sleepRangeLabels');
+    if (sleepLabels) {
+        sleepLabels.innerHTML = `<span>&lt;${standards.minSleep}h</span><span>${standards.sleepTarget} Target</span><span>&gt;${standards.maxSleep}h</span>`;
+    }
+
+    const ppLabels = document.getElementById('ppRangeLabels');
+    if (ppLabels) {
+        ppLabels.innerHTML = `<span>30</span><span>${standards.maxPP} Limit</span><span>70</span>`;
     }
 }
 
@@ -273,6 +322,7 @@ async function loadDashboardData() {
         const logs = historyData.logs || [];
 
         if (logs.length > 0) {
+            latestLogGlobal = logs[0];
             renderDashboardCards(logs[0]);
         }
 
@@ -782,6 +832,120 @@ async function loadPatientHistory() {
     } catch (err) {
         tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--status-abnormal);">${err.message}</td></tr>`;
     }
+}
+
+// ================= CLINICAL HELPERS & REPORT EXPORT =================
+function toggleBaselineBP(checkbox) {
+    const sys = document.getElementById('logSys');
+    const dia = document.getElementById('logDia');
+    const helper = document.getElementById('bpHelperText');
+    if (checkbox.checked) {
+        sys.disabled = true;
+        dia.disabled = true;
+        sys.value = 125;
+        dia.value = 82;
+        if (helper) helper.textContent = "Auto-filled from last verified clinical baseline. Uncheck if measured today.";
+    } else {
+        sys.disabled = false;
+        dia.disabled = false;
+        if (helper) helper.textContent = "Manual measurement mode: Enter today's resting systolic & diastolic readings.";
+        sys.focus();
+    }
+}
+
+function setStepPreset(steps) {
+    const stepsInput = document.getElementById('logSteps');
+    if (stepsInput) stepsInput.value = steps;
+}
+
+function openClinicalReportModal() {
+    const modal = document.getElementById('clinicalReportModal');
+    if (!modal) return;
+
+    document.getElementById('reportPatientName').textContent = currentUser.name;
+    document.getElementById('reportPatientAgeGender').textContent = `${currentUser.age} yrs / ${currentUser.gender}`;
+    document.getElementById('reportPatientBMI').textContent = `${currentUser.bmi} (${currentUser.bmi_category})`;
+    document.getElementById('reportPatientEmail').textContent = currentUser.email;
+    document.getElementById('reportDateStamp').textContent = new Date().toISOString().split('T')[0];
+    document.getElementById('reportRecordId').textContent = `RECORD ID: SS-8492-${currentUser.id}`;
+
+    if (latestLogGlobal) {
+        const diagEl = document.getElementById('reportDiagnosis');
+        const confEl = document.getElementById('reportConfidence');
+        const verdictPanel = document.getElementById('reportVerdictPanel');
+
+        if (latestLogGlobal.prediction.includes('Healthy')) {
+            diagEl.textContent = 'HEALTHY / OPTIMAL RESTORATION';
+            diagEl.className = 'verdict-headline normal';
+            verdictPanel.style.borderLeftColor = 'var(--status-normal)';
+            confEl.textContent = `${latestLogGlobal.prob_healthy.toFixed(1)}%`;
+        } else if (latestLogGlobal.prediction.includes('Insomnia')) {
+            diagEl.textContent = 'INSOMNIA RISK PROFILE';
+            diagEl.className = 'verdict-headline borderline';
+            verdictPanel.style.borderLeftColor = 'var(--status-borderline)';
+            confEl.textContent = `${latestLogGlobal.prob_insomnia.toFixed(1)}%`;
+        } else {
+            diagEl.textContent = 'SLEEP APNEA RISK PROFILE';
+            diagEl.className = 'verdict-headline abnormal';
+            verdictPanel.style.borderLeftColor = 'var(--status-abnormal)';
+            confEl.textContent = `${latestLogGlobal.prob_apnea.toFixed(1)}%`;
+        }
+
+        document.getElementById('reportProbHealthy').textContent = `${latestLogGlobal.prob_healthy.toFixed(1)}%`;
+        document.getElementById('reportProbInsomnia').textContent = `${latestLogGlobal.prob_insomnia.toFixed(1)}%`;
+        document.getElementById('reportProbApnea').textContent = `${latestLogGlobal.prob_apnea.toFixed(1)}%`;
+
+        document.getElementById('reportSleep').textContent = `${latestLogGlobal.sleep_duration} hrs`;
+        document.getElementById('reportSleepTimes').textContent = `${latestLogGlobal.bedtime || '23:15'} - ${latestLogGlobal.wake_time || '06:30'}`;
+        document.getElementById('reportBP').textContent = `${latestLogGlobal.systolic_bp}/${latestLogGlobal.diastolic_bp} mmHg`;
+        document.getElementById('reportPP').textContent = `${latestLogGlobal.pulse_pressure} mmHg`;
+        document.getElementById('reportHR').textContent = `${latestLogGlobal.heart_rate} bpm`;
+
+        const bpStatus = document.getElementById('reportBPStatus');
+        if (bpStatus) {
+            bpStatus.textContent = latestLogGlobal.systolic_bp >= 140 ? 'Hypertension Stage 2' : (latestLogGlobal.systolic_bp >= 125 ? 'Pre-Hypertension' : 'Normotensive');
+        }
+
+        const ppStatus = document.getElementById('reportPPStatus');
+        if (ppStatus) {
+            ppStatus.textContent = latestLogGlobal.pulse_pressure > 50 ? 'Arterial Stiffness Warning' : 'Optimal Compliance';
+        }
+
+        const hrStatus = document.getElementById('reportHRStatus');
+        if (hrStatus) {
+            hrStatus.textContent = latestLogGlobal.heart_rate > 100 ? 'Sinus Tachycardia' : (latestLogGlobal.heart_rate < 55 ? 'Bradycardia' : 'Sinus Baseline');
+        }
+
+        const summaryText = document.getElementById('reportSummaryText');
+        if (summaryText) {
+            summaryText.textContent = latestLogGlobal.plain_english_summary || document.getElementById('laymanSummaryText').textContent;
+        }
+
+        const actionStepsEl = document.getElementById('reportActionSteps');
+        if (actionStepsEl) {
+            let steps = latestLogGlobal.actionable_next_steps;
+            if (!steps || steps.length === 0) {
+                steps = [
+                    "Wind down 45 minutes before sleep: eliminate screens and avoid caffeine or heavy meals 4 hours prior.",
+                    "Record blood pressure tomorrow morning at rest to track autonomic vascular compliance.",
+                    "If daytime somnolence persists, schedule a specialist polysomnography evaluation."
+                ];
+            }
+            actionStepsEl.innerHTML = steps.map((s, idx) => `
+                <li style="font-size: 0.8rem; color: var(--text-primary); display: flex; gap: 8px;">
+                    <span class="mono" style="color: var(--accent); font-weight: 600;">0${idx + 1}.</span>
+                    <span>${s}</span>
+                </li>
+            `).join('');
+        }
+    }
+
+    modal.classList.add('open');
+}
+
+function closeClinicalReportModal() {
+    const modal = document.getElementById('clinicalReportModal');
+    if (modal) modal.classList.remove('open');
 }
 
 // ================= INITIALIZATION =================

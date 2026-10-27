@@ -705,3 +705,75 @@ textarea {
     max-width: 440px;
     padding: 24px;
 }
+
+.modal-card.modal-large {
+    max-width: 820px;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+/* ================= CLINICAL REPORT STYLES ================= */
+.report-header {
+    border-bottom: 2px solid var(--accent);
+    padding-bottom: 12px;
+    margin-bottom: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+.report-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin: 14px 0;
+}
+
+@media (max-width: 768px) {
+    .report-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+.report-tile {
+    background: var(--bg-surface-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: 4px;
+    padding: 10px 12px;
+}
+
+.signoff-box {
+    margin-top: 20px;
+    border-top: 1px dashed var(--border-strong);
+    padding-top: 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+}
+
+@media print {
+    body {
+        background: #FFFFFF !important;
+        color: #000000 !important;
+    }
+    .sidebar, .app-topbar, .modal-actions, .btn-primary, .btn-outline, #themeLabel, .page-view, .sidebar-footer {
+        display: none !important;
+    }
+    .modal-overlay {
+        position: static !important;
+        background: transparent !important;
+        display: block !important;
+        padding: 0 !important;
+    }
+    .modal-card.modal-large {
+        max-width: 100% !important;
+        max-height: none !important;
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        color: #000000 !important;
+        background: transparent !important;
+    }
+    .report-tile {
+        background: #F9FAFB !important;
+        border-color: #D1D5DB !important;
+    }
+}

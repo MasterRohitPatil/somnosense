@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SomnoSense: Clinical Decision Support Portal</title>
-    <link rel="stylesheet" href="/static/css/styles.css">
+    <link rel="stylesheet" href="/static/css/styles.css?v=2.3">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
@@ -85,8 +85,11 @@
                 <span class="mono" id="dashDateBadge" style="font-size: 0.75rem; color: var(--text-secondary);">ACTIVE PATIENT: ROHIT PATIL (ROHIT@GMAIL.COM)</span>
                 <div style="display: flex; gap: 10px; align-items: center;">
                     <a href="/" class="btn-outline icon-ext" style="font-size: 0.78rem;">Public Overview</a>
-                    <!-- Single Primary Action (Takes 30 seconds) -->
-                    <button type="button" class="btn-primary" onclick="navigate('daily-log')">Log Today's Vitals (30s)</button>
+                    <button type="button" class="btn-outline" id="btnExportReport" onclick="openClinicalReportModal()" style="font-size: 0.78rem;">
+                        Export Clinical Report
+                    </button>
+                    <!-- Single Primary Action (Takes under 15 seconds) -->
+                    <button type="button" class="btn-primary" onclick="navigate('daily-log')">Log Today's Vitals (15s)</button>
                 </div>
             </div>
 
@@ -94,9 +97,14 @@
 
                 <!-- ================= 1. STREAMLINED DAILY DASHBOARD ================= -->
                 <div id="view_dashboard" class="page-view active">
-                    <div class="page-heading">
-                        <h2>Daily Clinical Status & Summary</h2>
-                        <p>Essential daily readout, plain-English medical translation, and prioritized clinical action steps.</p>
+                    <div class="page-heading" style="display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 10px;">
+                        <div>
+                            <h2>Daily Clinical Status & Summary</h2>
+                            <p>Essential daily readout, calibrated vitals, plain-English medical translation, and prioritized clinical action steps.</p>
+                        </div>
+                        <span class="mono" id="whoCohortBadge" style="font-size: 0.72rem; color: var(--accent); background: var(--bg-surface-elevated); padding: 4px 10px; border-radius: 3px; border: 1px solid var(--border-subtle);">
+                            WHO COHORT: ADULT (26-64 YRS) | TARGET: 7.0 - 9.0 HRS
+                        </span>
                     </div>
 
                     <!-- Diagnostic Readout Tile with Animated Circular Confidence Gauge -->
@@ -122,34 +130,7 @@
                         </div>
                     </div>
 
-                    <!-- Plain English Layman Translation & Action Steps Card -->
-                    <div class="panel" style="border-left: 3px solid var(--accent);">
-                        <div class="panel-header">
-                            <h3>What This Means For You (Plain English)</h3>
-                            <span class="panel-header-action">Clinical Interpretation</span>
-                        </div>
-                        <p id="laymanSummaryText" style="font-size: 0.88rem; color: var(--text-primary); line-height: 1.6; margin-bottom: 16px;">
-                            Your sleep pattern and cardiovascular readings indicate elevated risk of Insomnia. This is primarily driven by shortened sleep duration and elevated blood pressure before bed, not your daytime activity.
-                        </p>
-
-                        <span class="vital-label">RECOMMENDED NEXT STEPS</span>
-                        <ul id="actionStepsList" style="list-style: none; display: flex; flex-direction: column; gap: 8px; margin-top: 6px;">
-                            <li style="font-size: 0.82rem; color: var(--text-primary); display: flex; gap: 8px;">
-                                <span class="mono" style="color: var(--accent); font-weight: 600;">01.</span>
-                                <span>Wind down 45 minutes before sleep: eliminate screens and avoid caffeine or heavy meals 4 hours prior.</span>
-                            </li>
-                            <li style="font-size: 0.82rem; color: var(--text-primary); display: flex; gap: 8px;">
-                                <span class="mono" style="color: var(--accent); font-weight: 600;">02.</span>
-                                <span>Record your blood pressure tomorrow morning at rest to track whether nocturnal arousal affects vascular compliance.</span>
-                            </li>
-                            <li style="font-size: 0.82rem; color: var(--text-primary); display: flex; gap: 8px;">
-                                <span class="mono" style="color: var(--accent); font-weight: 600;">03.</span>
-                                <span>If sleep onset latency exceeds 30 minutes for more than 2 weeks, consult a physician for behavioral sleep guidance.</span>
-                            </li>
-                        </ul>
-                    </div>
-
-                    <!-- 4-Up Vitals Tiles with Calibrated Range Bars -->
+                    <!-- 4-Up Vitals Tiles with WHO-Calibrated Range Bars (Placed Above Explanation) -->
                     <div class="vitals-grid">
                         <!-- Sleep Duration -->
                         <div class="vital-tile">
@@ -159,7 +140,7 @@
                                 <div class="range-track">
                                     <div class="range-fill borderline" id="rangeFillSleep" style="width: 58%;"></div>
                                 </div>
-                                <div class="range-labels">
+                                <div class="range-labels" id="sleepRangeLabels">
                                     <span>&lt;6h</span>
                                     <span>7-9h Target</span>
                                     <span>&gt;10h</span>
@@ -193,7 +174,7 @@
                                 <div class="range-track">
                                     <div class="range-fill normal" id="rangeFillPP" style="width: 47%;"></div>
                                 </div>
-                                <div class="range-labels">
+                                <div class="range-labels" id="ppRangeLabels">
                                     <span>30</span>
                                     <span>50 Limit</span>
                                     <span>70</span>
@@ -220,6 +201,33 @@
                         </div>
                     </div>
 
+                    <!-- Plain English Layman Translation & Action Steps Card (Placed Directly Below Vitals) -->
+                    <div class="panel" style="border-left: 3px solid var(--accent);">
+                        <div class="panel-header">
+                            <h3>What This Means For You (Plain English)</h3>
+                            <span class="panel-header-action">Clinical Interpretation</span>
+                        </div>
+                        <p id="laymanSummaryText" style="font-size: 0.88rem; color: var(--text-primary); line-height: 1.6; margin-bottom: 16px;">
+                            Your sleep pattern and cardiovascular readings indicate elevated risk of Insomnia. This is primarily driven by shortened sleep duration and elevated blood pressure before bed, not your daytime activity.
+                        </p>
+
+                        <span class="vital-label">RECOMMENDED NEXT STEPS</span>
+                        <ul id="actionStepsList" style="list-style: none; display: flex; flex-direction: column; gap: 8px; margin-top: 6px;">
+                            <li style="font-size: 0.82rem; color: var(--text-primary); display: flex; gap: 8px;">
+                                <span class="mono" style="color: var(--accent); font-weight: 600;">01.</span>
+                                <span>Wind down 45 minutes before sleep: eliminate screens and avoid caffeine or heavy meals 4 hours prior.</span>
+                            </li>
+                            <li style="font-size: 0.82rem; color: var(--text-primary); display: flex; gap: 8px;">
+                                <span class="mono" style="color: var(--accent); font-weight: 600;">02.</span>
+                                <span>Record your blood pressure tomorrow morning at rest to track whether nocturnal arousal affects vascular compliance.</span>
+                            </li>
+                            <li style="font-size: 0.82rem; color: var(--text-primary); display: flex; gap: 8px;">
+                                <span class="mono" style="color: var(--accent); font-weight: 600;">03.</span>
+                                <span>If sleep onset latency exceeds 30 minutes for more than 2 weeks, consult a physician for behavioral sleep guidance.</span>
+                            </li>
+                        </ul>
+                    </div>
+
                     <!-- Quick Navigation to In-Depth Charts -->
                     <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 4px;">
                         <span style="font-size: 0.8rem; color: var(--text-secondary);">Want to inspect machine learning curve attributions and longitudinal graphs?</span>
@@ -233,7 +241,7 @@
                 <div id="view_daily-log" class="page-view">
                     <div class="page-heading">
                         <h2>Daily Vital & Symptom Intake</h2>
-                        <p>Bedtime and wake time automatically compute exact sleep duration. Takes under 30 seconds to complete.</p>
+                        <p>Bedtime and wake time compute exact sleep duration automatically. Takes under 15 seconds to log.</p>
                     </div>
 
                     <div class="panel" style="max-width: 760px; margin: 0 auto;">
@@ -274,7 +282,14 @@
                                     <input type="number" id="logActivity" min="0" max="240" value="45" required>
                                 </div>
                                 <div class="form-group">
-                                    <label for="logSteps">Daily Step Count</label>
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <label for="logSteps">Daily Step Count</label>
+                                        <div style="display: flex; gap: 4px;">
+                                            <button type="button" class="btn-outline" style="padding: 1px 6px; font-size: 0.68rem;" onclick="setStepPreset(4000)">Low (4k)</button>
+                                            <button type="button" class="btn-outline" style="padding: 1px 6px; font-size: 0.68rem;" onclick="setStepPreset(6500)">Mod (6.5k)</button>
+                                            <button type="button" class="btn-outline" style="padding: 1px 6px; font-size: 0.68rem;" onclick="setStepPreset(9000)">Active (9k)</button>
+                                        </div>
+                                    </div>
                                     <input type="number" id="logSteps" min="500" max="30000" step="100" value="6000" required>
                                 </div>
                                 <div class="form-group">
@@ -282,11 +297,19 @@
                                     <input type="number" id="logHR" min="40" max="140" value="72" required>
                                 </div>
                                 <div class="form-group">
-                                    <label>Blood Pressure (Systolic / Diastolic mmHg)</label>
-                                    <div style="display: flex; gap: 8px;">
-                                        <input type="number" id="logSys" placeholder="Systolic (120)" min="80" max="220" value="125" required>
-                                        <input type="number" id="logDia" placeholder="Diastolic (80)" min="50" max="140" value="82" required>
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <label>Blood Pressure (mmHg)</label>
+                                        <label style="font-size: 0.72rem; color: var(--accent); font-weight: normal; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                                            <input type="checkbox" id="checkUseBaselineBP" checked onchange="toggleBaselineBP(this)"> Use baseline (125/82)
+                                        </label>
                                     </div>
+                                    <div style="display: flex; gap: 8px;">
+                                        <input type="number" id="logSys" placeholder="Systolic" min="80" max="220" value="125" disabled required>
+                                        <input type="number" id="logDia" placeholder="Diastolic" min="50" max="140" value="82" disabled required>
+                                    </div>
+                                    <span class="mono" id="bpHelperText" style="font-size: 0.68rem; color: var(--text-secondary); margin-top: 3px; display: block;">
+                                        Auto-filled from last verified clinical baseline. Uncheck if measured today.
+                                    </span>
                                 </div>
 
                                 <div class="form-group full">
@@ -378,6 +401,28 @@
                             <span class="vital-label" style="margin-top: 14px;">TOP SHAP BIOMETRIC DRIVERS</span>
                             <div style="height: 110px; position: relative; margin-top: 4px;">
                                 <canvas id="shapChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- In-Depth Analytics Explanation Panel -->
+                    <div class="panel" style="border-left: 3px solid var(--accent); margin-top: 18px;">
+                        <div class="panel-header">
+                            <h3>What These Telemetry Charts Mean</h3>
+                            <span class="panel-header-action">Clinical Methodology</span>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                            <div>
+                                <span class="vital-label">LONGITUDINAL TIME-SERIES (LEFT GRAPH)</span>
+                                <p style="font-size: 0.82rem; color: var(--text-primary); line-height: 1.6; margin-top: 4px;">
+                                    This chart correlates your <strong>Sleep Duration (solid blue line)</strong> with nocturnal <strong>Pulse Pressure (dashed amber line)</strong> across 30 days. When sleep drops under 6 hours, nocturnal sympathetic arousal often spikes pulse pressure above 50 mmHg—an early clinical indicator of arterial stiffness and sustained hypertension.
+                                </p>
+                            </div>
+                            <div>
+                                <span class="vital-label">TREESHAP GAME-THEORETIC ATTRIBUTIONS (RIGHT GRAPH)</span>
+                                <p style="font-size: 0.82rem; color: var(--text-primary); line-height: 1.6; margin-top: 4px;">
+                                    TreeSHAP explains the exact mathematical drivers behind your machine learning risk score. Green bars represent protective biometrics keeping you healthy, while red bars show the primary biomarkers (such as short sleep duration or elevated blood pressure) elevating your risk of sleep disorders.
+                                </p>
                             </div>
                         </div>
                     </div>
@@ -587,7 +632,127 @@
         </div>
     </div>
 
+    <!-- ================= 1-CLICK CLINICAL REPORT MODAL (PRINT READY) ================= -->
+    <div class="modal-overlay" id="clinicalReportModal">
+        <div class="modal-card modal-large">
+            <div class="report-header">
+                <div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <img src="/static/img/logo.png" style="width: 22px; height: 22px; object-fit: contain;" alt="Logo">
+                        <span style="font-size: 1.05rem; font-weight: 700; color: var(--text-primary); letter-spacing: -0.01em;">SOMNOSENSE CLINICAL REFERRAL DOSSIER</span>
+                    </div>
+                    <span class="mono" style="font-size: 0.72rem; color: var(--text-secondary);">CONFIDENTIAL SLEEP & CARDIOVASCULAR STRATIFICATION RECORD</span>
+                </div>
+                <div style="text-align: right;">
+                    <div class="mono" style="font-size: 0.75rem; color: var(--text-primary);" id="reportDateStamp">2026-10-28</div>
+                    <div class="mono" style="font-size: 0.7rem; color: var(--text-secondary);" id="reportRecordId">RECORD ID: SS-8492</div>
+                </div>
+            </div>
+
+            <!-- Patient Information Bar -->
+            <div style="background: var(--bg-surface-elevated); padding: 10px 14px; border: 1px solid var(--border-subtle); border-radius: 4px; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                <div>
+                    <span class="vital-label" style="margin: 0;">PATIENT NAME</span>
+                    <div style="font-size: 0.92rem; font-weight: 600; color: var(--text-primary);" id="reportPatientName">Rohit Patil</div>
+                </div>
+                <div>
+                    <span class="vital-label" style="margin: 0;">AGE / GENDER</span>
+                    <div class="mono" style="font-size: 0.82rem; color: var(--text-primary);" id="reportPatientAgeGender">32 yrs / Male</div>
+                </div>
+                <div>
+                    <span class="vital-label" style="margin: 0;">WHO BMI COHORT</span>
+                    <div class="mono" style="font-size: 0.82rem; color: var(--text-primary);" id="reportPatientBMI">24.5 (Normal)</div>
+                </div>
+                <div>
+                    <span class="vital-label" style="margin: 0;">CONTACT GMAIL</span>
+                    <div class="mono" style="font-size: 0.82rem; color: var(--text-primary);" id="reportPatientEmail">rohit@gmail.com</div>
+                </div>
+            </div>
+
+            <!-- ML Diagnostic Verdict -->
+            <div class="panel" id="reportVerdictPanel" style="margin-bottom: 14px; border-left: 3px solid var(--status-borderline);">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <span class="vital-label">XGBOOST STRATIFIED DIAGNOSIS</span>
+                        <div class="verdict-headline borderline" id="reportDiagnosis" style="font-size: 1.2rem;">INSOMNIA RISK</div>
+                    </div>
+                    <div style="text-align: right;">
+                        <span class="vital-label">CONFIDENCE SCORE</span>
+                        <div class="mono" style="font-size: 1.2rem; font-weight: 700; color: var(--text-primary);" id="reportConfidence">38.0%</div>
+                    </div>
+                </div>
+                <div style="margin-top: 8px; font-size: 0.75rem; color: var(--text-secondary); display: flex; gap: 18px;" class="mono">
+                    <span>Healthy: <strong id="reportProbHealthy" style="color: var(--status-normal);">29.0%</strong></span>
+                    <span>Insomnia: <strong id="reportProbInsomnia" style="color: var(--status-borderline);">38.0%</strong></span>
+                    <span>Sleep Apnea: <strong id="reportProbApnea" style="color: var(--status-abnormal);">33.0%</strong></span>
+                </div>
+            </div>
+
+            <!-- 24-Hour Vitals Summary Grid -->
+            <span class="vital-label">24-HOUR CLINICAL TELEMETRY PROFILE</span>
+            <div class="report-grid">
+                <div class="report-tile">
+                    <span class="vital-label">SLEEP DURATION</span>
+                    <div class="mono" style="font-size: 1.05rem; font-weight: 600;" id="reportSleep">6.5 hrs</div>
+                    <span class="mono" style="font-size: 0.68rem; color: var(--text-secondary);" id="reportSleepTimes">23:30 - 06:00</span>
+                </div>
+                <div class="report-tile">
+                    <span class="vital-label">BLOOD PRESSURE</span>
+                    <div class="mono" style="font-size: 1.05rem; font-weight: 600;" id="reportBP">130/84 mmHg</div>
+                    <span class="mono" style="font-size: 0.68rem; color: var(--text-secondary);" id="reportBPStatus">Pre-Hypertension</span>
+                </div>
+                <div class="report-tile">
+                    <span class="vital-label">PULSE PRESSURE</span>
+                    <div class="mono" style="font-size: 1.05rem; font-weight: 600;" id="reportPP">46 mmHg</div>
+                    <span class="mono" style="font-size: 0.68rem; color: var(--text-secondary);" id="reportPPStatus">Optimal Compliance</span>
+                </div>
+                <div class="report-tile">
+                    <span class="vital-label">RESTING PULSE</span>
+                    <div class="mono" style="font-size: 1.05rem; font-weight: 600;" id="reportHR">78 bpm</div>
+                    <span class="mono" style="font-size: 0.68rem; color: var(--text-secondary);" id="reportHRStatus">Sinus Baseline</span>
+                </div>
+            </div>
+
+            <!-- Layman & Clinical Guidance -->
+            <div style="margin: 12px 0;">
+                <span class="vital-label">CLINICAL INTERPRETATION SUMMARY</span>
+                <p id="reportSummaryText" style="font-size: 0.82rem; color: var(--text-primary); line-height: 1.55; margin-top: 4px;">
+                    Your sleep pattern and cardiovascular readings indicate elevated risk of Insomnia. This is primarily driven by shortened sleep duration and elevated blood pressure before bed, not your daytime activity.
+                </p>
+            </div>
+
+            <div>
+                <span class="vital-label">RECOMMENDED CLINICAL ACTION PLAN</span>
+                <ul id="reportActionSteps" style="list-style: none; display: flex; flex-direction: column; gap: 6px; margin-top: 6px;">
+                    <li style="font-size: 0.8rem; color: var(--text-primary); display: flex; gap: 8px;">
+                        <span class="mono" style="color: var(--accent); font-weight: 600;">01.</span>
+                        <span>Wind down 45 minutes before sleep: eliminate screens and avoid caffeine or heavy meals 4 hours prior.</span>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Attending Clinician Sign-off Block -->
+            <div class="signoff-box">
+                <div>
+                    <span class="vital-label">REFERRING DECISION SUPPORT SYSTEM</span>
+                    <div class="mono" style="font-size: 0.75rem; color: var(--text-primary);">SomnoSense ML Clinical Risk Engine (v2.2)</div>
+                    <div class="mono" style="font-size: 0.68rem; color: var(--text-secondary);">Trained on WHO & Sleep Heart Health Study Baseline</div>
+                </div>
+                <div style="text-align: right;">
+                    <div style="border-bottom: 1px solid var(--border-strong); width: 220px; margin-bottom: 4px; padding-bottom: 22px;"></div>
+                    <span class="vital-label" style="margin: 0;">PHYSICIAN SIGNATURE & DATE</span>
+                </div>
+            </div>
+
+            <!-- Modal Action Buttons (Hidden on Print) -->
+            <div class="modal-actions" style="margin-top: 20px; display: flex; justify-content: flex-end; gap: 10px;">
+                <button type="button" class="btn-outline" onclick="closeClinicalReportModal()">Close</button>
+                <button type="button" class="btn-primary" onclick="window.print()">Print / Save as PDF</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Script Controller -->
-    <script src="/static/js/app.js"></script>
+    <script src="/static/js/app.js?v=2.3"></script>
 </body>
 </html>
