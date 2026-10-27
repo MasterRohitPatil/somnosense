@@ -1,7 +1,8 @@
 import sqlite3
 import hashlib
 import os
-from datetime import datetime
+import random
+from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "somnosense.db")
@@ -10,9 +11,6 @@ def get_db_connection():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
-
-def hash_password(password: str) -> str:
-    return hashlib.sha256(password.encode()).hexdigest()
 
 def calculate_bmi(weight_kg: float, height_cm: float) -> tuple[float, str]:
     """Calculate clinical BMI and categorization according to WHO standards."""
@@ -32,13 +30,23 @@ def init_db():
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # Users Table
+    # Check existing users table schema; recreate cleanly for single test user
+    cursor.execute("DROP TABLE IF EXISTS otps")
     cursor.execute("""
-    CREATE TABLE IF NOT EXISTS users (
+    CREATE TABLE otps (
+        email TEXT PRIMARY KEY,
+        otp_code TEXT NOT NULL,
+        expires_at TIMESTAMP NOT NULL
+    );
+    """)
+
+    # Drop old users table to clean out old password columns and ensure clean schema
+    cursor.execute("DROP TABLE IF EXISTS users")
+    cursor.execute("""
+    CREATE TABLE users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
         email TEXT UNIQUE NOT NULL,
-        password_hash TEXT NOT NULL,
         age INTEGER NOT NULL,
         gender TEXT NOT NULL,
         height_cm REAL NOT NULL,
@@ -49,12 +57,20 @@ def init_db():
     );
     """)
 
+    # Insert single test user (rohit@gmail.com)
+    cursor.execute("""
+        INSERT INTO users (id, name, email, age, gender, height_cm, weight_kg, bmi, bmi_category)
+        VALUES (1, 'Rohit Patil', 'rohit@gmail.com', 32, 'Male', 175.0, 75.0, 24.5, 'Normal')
+    """)
+
     # Daily Patient Logs Table
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS daily_logs (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER NOT NULL,
         log_date DATE NOT NULL,
+        bedtime TEXT,
+        wake_time TEXT,
         sleep_duration REAL NOT NULL,
         quality_of_sleep REAL NOT NULL,
         physical_activity REAL NOT NULL,
@@ -78,56 +94,82 @@ def init_db():
     );
     """)
 
+    # Verify daily_logs has bedtime and wake_time columns
+    cursor.execute("PRAGMA table_info(daily_logs)")
+    columns = [row[1] for row in cursor.fetchall()]
+    if 'bedtime' not in columns:
+        cursor.execute("ALTER TABLE daily_logs ADD COLUMN bedtime TEXT")
+    if 'wake_time' not in columns:
+        cursor.execute("ALTER TABLE daily_logs ADD COLUMN wake_time TEXT")
+
+    # Ensure user 1 has initial historical logs for rich charts
+    cursor.execute("SELECT COUNT(*) FROM daily_logs WHERE user_id = 1")
+    count = cursor.fetchone()[0]
+    if count == 0:
+        seed_logs = [
+            (1, '2026-10-21', '23:30', '05:45', 6.25, 6.0, 45.0, 6.0, 78.0, 5200.0, 132.0, 84.0, 48.0, 80.0, 'Mild restlessness during sleep', 'neutral', 'Mild restlessness', 'Insomnia Risk', 12.0, 78.0, 10.0, 'Historical Baseline'),
+            (1, '2026-10-22', '23:45', '05:30', 5.75, 5.0, 30.0, 7.0, 82.0, 4800.0, 135.0, 86.0, 49.0, 74.0, 'Difficulty falling asleep', 'borderline', 'Sleep onset latency', 'Insomnia Risk', 8.0, 84.0, 8.0, 'Historical Baseline'),
+            (1, '2026-10-23', '00:15', '06:00', 5.75, 5.0, 35.0, 7.0, 80.0, 5100.0, 136.0, 88.0, 48.0, 72.0, 'Woke up at 3 am', 'borderline', 'Nocturnal awakening', 'Insomnia Risk', 6.0, 86.0, 8.0, 'Historical Baseline'),
+            (1, '2026-10-24', '23:00', '06:30', 7.50, 7.0, 60.0, 4.0, 72.0, 7500.0, 124.0, 80.0, 44.0, 88.0, 'Slept reasonably well', 'positive', 'Normal restorative sleep', 'Healthy / Normal', 88.0, 8.0, 4.0, 'Historical Baseline'),
+            (1, '2026-10-25', '23:15', '06:45', 7.50, 8.0, 55.0, 4.0, 70.0, 8200.0, 122.0, 79.0, 43.0, 90.0, 'Refreshed morning', 'positive', 'Normal restorative sleep', 'Healthy / Normal', 92.0, 5.0, 3.0, 'Historical Baseline'),
+            (1, '2026-10-26', '00:30', '05:45', 5.25, 4.0, 20.0, 8.0, 85.0, 3900.0, 138.0, 90.0, 48.0, 68.0, 'Severe work stress, racing heartbeat', 'elevated', 'Nocturnal arousal, hypertension', 'Insomnia Risk', 4.0, 91.0, 5.0, 'Historical Baseline'),
+            (1, '2026-10-27', '23:15', '06:30', 7.25, 7.0, 50.0, 5.0, 74.0, 6400.0, 126.0, 82.0, 44.0, 87.0, 'Felt moderate fatigue but fell asleep smoothly', 'neutral', 'Mild fatigue', 'Healthy / Normal', 85.0, 10.0, 5.0, 'Daily Assessment')
+        ]
+        cursor.executemany("""
+            INSERT INTO daily_logs (
+                user_id, log_date, bedtime, wake_time, sleep_duration, quality_of_sleep,
+                physical_activity, stress_level, heart_rate, daily_steps,
+                systolic_bp, diastolic_bp, pulse_pressure, sleep_efficiency,
+                journal_text, nlp_sentiment, nlp_symptoms, prediction,
+                prob_healthy, prob_insomnia, prob_apnea, data_source
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, seed_logs)
+
     conn.commit()
-
-    # Seed default demonstration user if table is empty
-    cursor.execute("SELECT COUNT(*) FROM users")
-    if cursor.fetchone()[0] == 0:
-        demo_hash = hash_password("demo123")
-        cursor.execute("""
-            INSERT INTO users (name, email, password_hash, age, gender, height_cm, weight_kg, bmi, bmi_category)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, ("Rohit Patil (Demo Patient)", "rohit@somnosense.org", demo_hash, 32, "Male", 175.0, 78.0, 25.5, "Overweight"))
-        conn.commit()
-
     conn.close()
 
-def register_user(name: str, email: str, password: str, age: int, gender: str, height_cm: float, weight_kg: float) -> Optional[Dict[str, Any]]:
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    bmi, bmi_category = calculate_bmi(weight_kg, height_cm)
-    pwd_hash = hash_password(password)
-    try:
-        cursor.execute("""
-            INSERT INTO users (name, email, password_hash, age, gender, height_cm, weight_kg, bmi, bmi_category)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (name, email.strip().lower(), pwd_hash, age, gender, height_cm, weight_kg, bmi, bmi_category))
-        conn.commit()
-        user_id = cursor.lastrowid
-        return get_user_by_id(user_id)
-    except sqlite3.IntegrityError:
-        return None
-    finally:
-        conn.close()
+# --- OTP Authentication Functions ---
 
-def update_user_settings(user_id: int, name: str, age: int, gender: str, height_cm: float, weight_kg: float) -> Optional[Dict[str, Any]]:
+def create_or_get_otp(email: str) -> str:
+    """Generates a 6-digit OTP code for Gmail verification with a 15-minute expiration."""
+    clean_email = email.strip().lower()
+    otp_code = str(random.randint(100000, 999999))
+    expires_at = datetime.now() + timedelta(minutes=15)
+    
     conn = get_db_connection()
     cursor = conn.cursor()
-    bmi, bmi_category = calculate_bmi(weight_kg, height_cm)
     cursor.execute("""
-        UPDATE users 
-        SET name = ?, age = ?, gender = ?, height_cm = ?, weight_kg = ?, bmi = ?, bmi_category = ?
-        WHERE id = ?
-    """, (name, age, gender, height_cm, weight_kg, bmi, bmi_category, user_id))
+        INSERT INTO otps (email, otp_code, expires_at) 
+        VALUES (?, ?, ?)
+        ON CONFLICT(email) DO UPDATE SET otp_code=excluded.otp_code, expires_at=excluded.expires_at
+    """, (clean_email, otp_code, expires_at))
     conn.commit()
     conn.close()
-    return get_user_by_id(user_id)
+    return otp_code
 
-def authenticate_user(email: str, password: str) -> Optional[Dict[str, Any]]:
+def verify_otp_code(email: str, entered_code: str) -> bool:
+    clean_email = email.strip().lower()
     conn = get_db_connection()
     cursor = conn.cursor()
-    pwd_hash = hash_password(password)
-    cursor.execute("SELECT * FROM users WHERE email = ? AND password_hash = ?", (email.strip().lower(), pwd_hash))
+    cursor.execute("SELECT otp_code, expires_at FROM otps WHERE email = ?", (clean_email,))
+    row = cursor.fetchone()
+    conn.close()
+
+    if not row:
+        return False
+    
+    saved_code = row['otp_code']
+    expires_at = datetime.strptime(row['expires_at'], "%Y-%m-%d %H:%M:%S.%f") if '.' in row['expires_at'] else datetime.strptime(row['expires_at'], "%Y-%m-%d %H:%M:%S")
+    
+    if datetime.now() > expires_at:
+        return False
+        
+    return saved_code.strip() == entered_code.strip()
+
+def get_user_by_email(email: str) -> Optional[Dict[str, Any]]:
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM users WHERE email = ?", (email.strip().lower(),))
     row = cursor.fetchone()
     conn.close()
     if row:
@@ -144,20 +186,53 @@ def get_user_by_id(user_id: int) -> Optional[Dict[str, Any]]:
         return dict(row)
     return None
 
+def update_user_settings(user_id: int, name: str, age: int, gender: str, height_cm: float, weight_kg: float) -> Optional[Dict[str, Any]]:
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    bmi, bmi_category = calculate_bmi(weight_kg, height_cm)
+    cursor.execute("""
+        UPDATE users 
+        SET name = ?, age = ?, gender = ?, height_cm = ?, weight_kg = ?, bmi = ?, bmi_category = ?
+        WHERE id = ?
+    """, (name, age, gender, height_cm, weight_kg, bmi, bmi_category, user_id))
+    conn.commit()
+    conn.close()
+    return get_user_by_id(user_id)
+
+def register_user(name: str, email: str, age: int, gender: str, height_cm: float, weight_kg: float) -> Optional[Dict[str, Any]]:
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    bmi, bmi_category = calculate_bmi(weight_kg, height_cm)
+    clean_email = email.strip().lower()
+    try:
+        cursor.execute("""
+            INSERT INTO users (name, email, age, gender, height_cm, weight_kg, bmi, bmi_category)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (name, clean_email, age, gender, height_cm, weight_kg, bmi, bmi_category))
+        conn.commit()
+        user_id = cursor.lastrowid
+        return get_user_by_id(user_id)
+    except sqlite3.IntegrityError:
+        return get_user_by_email(clean_email)
+    finally:
+        conn.close()
+
 def save_daily_log(user_id: int, log_data: Dict[str, Any]) -> int:
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("""
         INSERT INTO daily_logs (
-            user_id, log_date, sleep_duration, quality_of_sleep,
+            user_id, log_date, bedtime, wake_time, sleep_duration, quality_of_sleep,
             physical_activity, stress_level, heart_rate, daily_steps,
             systolic_bp, diastolic_bp, pulse_pressure, sleep_efficiency,
             journal_text, nlp_sentiment, nlp_symptoms,
             prediction, prob_healthy, prob_insomnia, prob_apnea, data_source
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         user_id,
         log_data.get('log_date', datetime.now().strftime("%Y-%m-%d")),
+        log_data.get('bedtime', '23:00'),
+        log_data.get('wake_time', '06:30'),
         log_data['sleep_duration'],
         log_data['quality_of_sleep'],
         log_data['physical_activity'],
@@ -169,7 +244,7 @@ def save_daily_log(user_id: int, log_data: Dict[str, Any]) -> int:
         log_data['pulse_pressure'],
         log_data['sleep_efficiency'],
         log_data.get('journal_text', ''),
-        log_data.get('nlp_sentiment', 'Neutral'),
+        log_data.get('nlp_sentiment', 'Normal'),
         log_data.get('nlp_symptoms', ''),
         log_data['prediction'],
         log_data['prob_healthy'],
@@ -196,11 +271,10 @@ def get_user_logs(user_id: int, limit: int = 30) -> List[Dict[str, Any]]:
     return [dict(r) for r in rows]
 
 def get_user_analytics(user_id: int) -> Dict[str, Any]:
-    """Computes weekly and monthly trends and averages for dashboard charts."""
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT log_date, sleep_duration, quality_of_sleep, heart_rate, systolic_bp, diastolic_bp, pulse_pressure, prediction
+        SELECT log_date, bedtime, wake_time, sleep_duration, quality_of_sleep, heart_rate, systolic_bp, diastolic_bp, pulse_pressure, prediction
         FROM daily_logs 
         WHERE user_id = ? 
         ORDER BY log_date ASC
@@ -210,7 +284,6 @@ def get_user_analytics(user_id: int) -> Dict[str, Any]:
     conn.close()
 
     if not rows:
-        # Default baseline if empty
         return {
             "has_data": False,
             "avg_sleep_7d": 0,

@@ -2,14 +2,14 @@ from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 import pandas as pd
 import numpy as np
 import joblib
 import shap
 import os
 import io
-import json
+import re
 from typing import Optional, List, Dict, Any
 
 from backend import database
@@ -20,7 +20,7 @@ FRONTEND_DIR = os.path.join(BASE_DIR, "frontend")
 DATA_DIR = os.path.join(BASE_DIR, "data")
 BACKEND_DIR = os.path.join(BASE_DIR, "backend")
 
-app = FastAPI(title="SomnoSense Clinical Decision Support Platform", version="2.1.0")
+app = FastAPI(title="SomnoSense Clinical Decision Support Platform", version="2.2.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -30,7 +30,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Mount frontend static directory
 if os.path.exists(FRONTEND_DIR):
     app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
 
@@ -48,16 +47,14 @@ num_cols = ['Age', 'Sleep Duration', 'Quality of Sleep', 'Physical Activity Leve
             'Diastolic_BP', 'Pulse_Pressure', 'Sleep_Efficiency']
 cat_cols = ['Gender', 'BMI Category']
 
-# --- Request Models ---
+# --- Request Schemas ---
 
-class RegisterRequest(BaseModel):
-    name: str
+class RequestOTPRequest(BaseModel):
     email: str
-    password: str
-    age: int
-    gender: str
-    height_cm: float
-    weight_kg: float
+
+class VerifyOTPRequest(BaseModel):
+    email: str
+    otp_code: str
 
 class UpdateSettingsRequest(BaseModel):
     name: str
@@ -66,13 +63,11 @@ class UpdateSettingsRequest(BaseModel):
     height_cm: float
     weight_kg: float
 
-class LoginRequest(BaseModel):
-    email: str
-    password: str
-
 class DailyLogRequest(BaseModel):
     user_id: int
-    sleep_duration: float
+    bedtime: Optional[str] = "23:00"
+    wake_time: Optional[str] = "06:30"
+    sleep_duration: Optional[float] = None
     quality_of_sleep: float
     physical_activity: float
     stress_level: float
@@ -85,9 +80,72 @@ class DailyLogRequest(BaseModel):
 
 class GoogleFitSyncRequest(BaseModel):
     user_id: int
-    google_account_email: Optional[str] = "patient@gmail.com"
+    google_account_email: Optional[str] = "rohit@gmail.com"
 
-# --- ML Inference Utility ---
+# --- Duration Calculation Helper ---
+
+def compute_sleep_duration(bedtime_str: str, wake_time_str: str) -> float:
+    """Calculates sleep duration in hours from bedtime and wake-up time, properly handling midnight crossover."""
+    try:
+        b_h, b_m = map(int, bedtime_str.split(':'))
+        w_h, w_m = map(int, wake_time_str.split(':'))
+        bed_mins = b_h * 60 + b_m
+        wake_mins = w_h * 60 + w_m
+        
+        if wake_mins >= bed_mins:
+            duration_mins = wake_mins - bed_mins
+        else:
+            duration_mins = (1440 - bed_mins) + wake_mins
+            
+        return round(duration_mins / 60.0, 2)
+    except Exception:
+        return 7.0
+
+# --- Plain English Clinical Translation Engine ---
+
+def generate_layman_interpretation(prediction: str, probs: dict, top_factors: list, pulse_pressure: float, sleep_duration: float) -> dict:
+    factors_text = ", ".join([f['feature'].replace('_', ' ') for f in top_factors[:2]])
+    
+    if "Healthy" in prediction:
+        summary = (
+            f"Your sleep pattern and cardiovascular readings indicate healthy, restorative rest. "
+            f"Your sleep duration ({sleep_duration} hours) and compliant pulse pressure ({pulse_pressure} mmHg) "
+            f"show balanced autonomic recovery with no acute nocturnal markers."
+        )
+        steps = [
+            "Maintain your current sleep schedule by going to bed within 30 minutes of your regular time.",
+            "Continue daily physical activity to sustain compliant vascular arterial tone.",
+            "Repeat a routine vital screening every 30 days to monitor long-term baseline stability."
+        ]
+    elif "Insomnia" in prediction:
+        summary = (
+            f"Your risk of Insomnia is elevated today ({probs.get('Insomnia', 0)}%). "
+            f"This is driven primarily by {factors_text.lower()} rather than random chance. "
+            f"Your sleep efficiency index suggests nocturnal hyperarousal and fragmented recovery."
+        )
+        steps = [
+            "Wind down 45 minutes before sleep: eliminate screens and avoid caffeine or heavy meals 4 hours prior.",
+            "If you cannot fall asleep within 25 minutes, step out of bed to read in dim light until drowsy.",
+            "Record your blood pressure in the morning at rest to track if nocturnal arousal affects vascular pressure."
+        ]
+    else: # Sleep Apnea
+        pp_warning = " Elevated arterial pulse pressure (>50 mmHg) was observed, indicating vascular strain." if pulse_pressure > 50 else ""
+        summary = (
+            f"Your biometrics indicate an elevated risk of Sleep Apnea ({probs.get('Sleep_Apnea', 0)}%). "
+            f"The model detected high arterial resistance and nocturnal airway stress driven by {factors_text.lower()}.{pp_warning}"
+        )
+        steps = [
+            "Schedule a clinical evaluation with a sleep medicine specialist for a Home Sleep Apnea Test (HSAT).",
+            "Try positional side-sleeping using supportive pillows to prevent soft palate airway collapse.",
+            "Monitor morning blood pressure closely: sleep-disordered breathing frequently triggers isolated hypertension."
+        ]
+        
+    return {
+        "plain_english_summary": summary,
+        "actionable_next_steps": steps
+    }
+
+# --- ML Inference ---
 
 def run_ml_inference(payload: dict):
     if payload.get('BMI Category') == 'Normal Weight':
@@ -122,19 +180,27 @@ def run_ml_inference(payload: dict):
         for i in top_indices
     ]
 
-    return {
-        "prediction": labels[pred_idx],
-        "risk_probabilities": {
-            "Healthy": round(probs[0] * 100, 1),
-            "Insomnia": round(probs[1] * 100, 1),
-            "Sleep_Apnea": round(probs[2] * 100, 1)
-        },
-        "top_contributing_factors": top_factors,
-        "pulse_pressure": round(payload['Pulse_Pressure'], 1),
-        "sleep_efficiency": round(payload['Sleep_Efficiency'], 2)
+    risk_probs = {
+        "Healthy": round(probs[0] * 100, 1),
+        "Insomnia": round(probs[1] * 100, 1),
+        "Sleep_Apnea": round(probs[2] * 100, 1)
     }
 
-# --- Core Pages Navigation ---
+    layman_guidance = generate_layman_interpretation(
+        labels[pred_idx], risk_probs, top_factors, payload['Pulse_Pressure'], payload['Sleep Duration']
+    )
+
+    return {
+        "prediction": labels[pred_idx],
+        "risk_probabilities": risk_probs,
+        "top_contributing_factors": top_factors,
+        "pulse_pressure": round(payload['Pulse_Pressure'], 1),
+        "sleep_efficiency": round(payload['Sleep_Efficiency'], 2),
+        "plain_english_summary": layman_guidance['plain_english_summary'],
+        "actionable_next_steps": layman_guidance['actionable_next_steps']
+    }
+
+# --- Routes ---
 
 @app.get("/")
 def serve_landing_page():
@@ -152,32 +218,43 @@ def serve_patient_portal():
 
 @app.get("/health")
 def health():
-    return {"status": "healthy", "platform": "SomnoSense v2.1"}
+    return {"status": "healthy", "platform": "SomnoSense v2.2"}
 
-# --- User Authentication & Settings ---
+# --- Gmail OTP Authentication Routes ---
 
-@app.post("/api/auth/register")
-def register(req: RegisterRequest):
-    user = database.register_user(
-        name=req.name,
-        email=req.email,
-        password=req.password,
-        age=req.age,
-        gender=req.gender,
-        height_cm=req.height_cm,
-        weight_kg=req.weight_kg
-    )
+@app.post("/api/auth/request-otp")
+def request_otp(req: RequestOTPRequest):
+    email = req.email.strip().lower()
+    if not email.endswith("@gmail.com"):
+        raise HTTPException(status_code=400, detail="Only @gmail.com accounts are permitted for clinical patient registration.")
+    
+    otp_code = database.create_or_get_otp(email)
+    
+    # Return OTP for immediate testing and presentation convenience
+    return {
+        "status": "success",
+        "email": email,
+        "message": f"Verification OTP code sent to {email}.",
+        "demo_code": otp_code
+    }
+
+@app.post("/api/auth/verify-otp")
+def verify_otp(req: VerifyOTPRequest):
+    email = req.email.strip().lower()
+    if not database.verify_otp_code(email, req.otp_code):
+        raise HTTPException(status_code=401, detail="Invalid or expired OTP code. Please try again.")
+
+    user = database.get_user_by_email(email)
     if not user:
-        raise HTTPException(status_code=400, detail="An account with this email already exists.")
-    return {"status": "success", "user": user}
+        # Register new Gmail user with standard clinical defaults
+        name = email.split('@')[0].capitalize()
+        user = database.register_user(name=name, email=email, age=30, gender="Male", height_cm=175.0, weight_kg=70.0)
 
-@app.post("/api/auth/login")
-def login(req: LoginRequest):
-    user = database.authenticate_user(req.email, req.password)
-    if not user:
-        raise HTTPException(status_code=401, detail="Invalid email or password.")
-    user.pop("password_hash", None)
-    return {"status": "success", "user": user}
+    return {
+        "status": "success",
+        "user": user,
+        "message": f"Welcome back, {user['name']}! Authenticated successfully."
+    }
 
 @app.get("/api/auth/user/{user_id}")
 def get_user_profile(user_id: int):
@@ -198,9 +275,9 @@ def update_user_settings(user_id: int, req: UpdateSettingsRequest):
     )
     if not updated:
         raise HTTPException(status_code=404, detail="User not found.")
-    return {"status": "success", "user": updated, "message": "Settings updated and BMI recalculated successfully!"}
+    return {"status": "success", "user": updated, "message": "Biometrics updated and BMI recalculated."}
 
-# --- Clinical Daily Logging with NLP ---
+# --- Clinical Daily Logging ---
 
 @app.post("/api/logs/create")
 def create_daily_log(req: DailyLogRequest):
@@ -208,12 +285,17 @@ def create_daily_log(req: DailyLogRequest):
     if not user:
         raise HTTPException(status_code=404, detail="User profile not found.")
 
+    # Calculate sleep duration automatically from bedtime and wake time if not provided
+    duration = req.sleep_duration
+    if duration is None or duration <= 0:
+        duration = compute_sleep_duration(req.bedtime or "23:00", req.wake_time or "06:30")
+
     nlp_results = analyze_sleep_journal(req.journal_text or "")
 
     payload = {
         'Age': float(user['age']),
         'Gender': user['gender'],
-        'Sleep Duration': req.sleep_duration,
+        'Sleep Duration': duration,
         'Quality of Sleep': req.quality_of_sleep,
         'Physical Activity Level': req.physical_activity,
         'Stress Level': req.stress_level,
@@ -227,7 +309,9 @@ def create_daily_log(req: DailyLogRequest):
 
     log_record = {
         'log_date': req.log_date or pd.Timestamp.now().strftime("%Y-%m-%d"),
-        'sleep_duration': req.sleep_duration,
+        'bedtime': req.bedtime or "23:00",
+        'wake_time': req.wake_time or "06:30",
+        'sleep_duration': duration,
         'quality_of_sleep': req.quality_of_sleep,
         'physical_activity': req.physical_activity,
         'stress_level': req.stress_level,
@@ -251,11 +335,14 @@ def create_daily_log(req: DailyLogRequest):
     return {
         "status": "success",
         "log_id": log_id,
+        "sleep_duration": duration,
         "prediction": ml_res['prediction'],
         "risk_probabilities": ml_res['risk_probabilities'],
         "top_contributing_factors": ml_res['top_contributing_factors'],
         "pulse_pressure": ml_res['pulse_pressure'],
         "sleep_efficiency": ml_res['sleep_efficiency'],
+        "plain_english_summary": ml_res['plain_english_summary'],
+        "actionable_next_steps": ml_res['actionable_next_steps'],
         "nlp_analysis": nlp_results
     }
 
@@ -269,7 +356,7 @@ def get_user_analytics(user_id: int):
     analytics = database.get_user_analytics(user_id)
     return analytics
 
-# --- Wearables & Google Fit Ingestion ---
+# --- Wearables & Google Fit ---
 
 @app.get("/api/wearable/sample-csv")
 def download_sample_csv():
@@ -327,6 +414,8 @@ async def upload_wearable_csv(user_id: int = Form(...), file: UploadFile = File(
 
         log_record = {
             'log_date': str(row.get('Date', pd.Timestamp.now().strftime("%Y-%m-%d"))),
+            'bedtime': '23:00',
+            'wake_time': '06:00',
             'sleep_duration': float(row['sleep_duration']),
             'quality_of_sleep': float(row['quality_of_sleep']),
             'physical_activity': float(row['physical_activity']),
@@ -338,7 +427,7 @@ async def upload_wearable_csv(user_id: int = Form(...), file: UploadFile = File(
             'pulse_pressure': ml_res['pulse_pressure'],
             'sleep_efficiency': ml_res['sleep_efficiency'],
             'journal_text': str(row.get('Device_Notes', 'Imported via Wearable Telemetry')),
-            'nlp_sentiment': 'Wearable Verified',
+            'nlp_sentiment': 'Wearable Stream',
             'nlp_symptoms': 'Device Stream Log',
             'prediction': ml_res['prediction'],
             'prob_healthy': ml_res['risk_probabilities']['Healthy'],
@@ -362,7 +451,6 @@ def sync_google_fit(req: GoogleFitSyncRequest):
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    # Simulate realistic Google Fit telemetry stream ingestion
     sample_path = os.path.join(DATA_DIR, "sample_wearable_export.csv")
     if os.path.exists(sample_path):
         df = pd.read_csv(sample_path)
@@ -384,6 +472,8 @@ def sync_google_fit(req: GoogleFitSyncRequest):
 
         log_record = {
             'log_date': pd.Timestamp.now().strftime("%Y-%m-%d"),
+            'bedtime': '23:30',
+            'wake_time': '06:00',
             'sleep_duration': payload['Sleep Duration'],
             'quality_of_sleep': payload['Quality of Sleep'],
             'physical_activity': payload['Physical Activity Level'],

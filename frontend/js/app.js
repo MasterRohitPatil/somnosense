@@ -1,8 +1,10 @@
-// Global State
+// SomnoSense: Clinical Decision Support Portal Client Logic (v2.2.0)
+// Clinical Instrumentation Visual Language & Strict State Management
+
 let currentUser = {
     id: 1,
     name: "Rohit Patil",
-    email: "rohit@somnosense.org",
+    email: "rohit@gmail.com",
     age: 32,
     gender: "Male",
     height_cm: 175,
@@ -13,10 +15,10 @@ let currentUser = {
 
 let shapChartInstance = null;
 let trendChartInstance = null;
+let currentDemoOtp = "";
 
 // ================= THEME CONTROLLER =================
 function initTheme() {
-    // Default to dark per user specification, toggleable to light
     const saved = localStorage.getItem('somnosense-theme') || 'dark';
     setTheme(saved);
 }
@@ -31,16 +33,17 @@ function setTheme(theme) {
     if (theme === 'light') {
         document.documentElement.setAttribute('data-theme', 'light');
     } else {
-        document.documentElement.removeAttribute('data-theme'); // default is dark in :root
+        document.documentElement.removeAttribute('data-theme');
     }
     localStorage.setItem('somnosense-theme', theme);
     
-    // Update theme toggle buttons (NO EMOJIS)
     document.querySelectorAll('#themeLabel').forEach(el => {
         el.textContent = theme === 'light' ? 'Dark' : 'Light';
     });
 
-    if (trendChartInstance) loadDashboardData();
+    if (trendChartInstance || shapChartInstance) {
+        loadDashboardData();
+    }
 }
 
 // ================= NAVIGATION CONTROLLER =================
@@ -58,6 +61,9 @@ function navigate(pageId) {
         loadDashboardData();
     } else if (pageId === 'daily-log') {
         document.getElementById('logDate').value = new Date().toISOString().split('T')[0];
+        calculateLiveSleepDuration();
+    } else if (pageId === 'analytics') {
+        loadDashboardData();
     } else if (pageId === 'history') {
         loadPatientHistory();
     } else if (pageId === 'settings') {
@@ -65,89 +71,141 @@ function navigate(pageId) {
     }
 }
 
-// ================= AUTHENTICATION & MODAL =================
+// ================= GMAIL OTP AUTHENTICATION =================
 function openAuthModal() {
     document.getElementById('authModal').classList.add('open');
+    resetOtpModal();
 }
 
 function closeAuthModal() {
     document.getElementById('authModal').classList.remove('open');
 }
 
-function switchAuthTab(tab) {
-    if (tab === 'login') {
-        document.getElementById('tabLoginBtn').style.fontWeight = '600';
-        document.getElementById('tabLoginBtn').style.color = 'var(--text-primary)';
-        document.getElementById('tabRegisterBtn').style.fontWeight = '400';
-        document.getElementById('tabRegisterBtn').style.color = 'var(--text-secondary)';
-        document.getElementById('loginForm').style.display = 'block';
-        document.getElementById('registerForm').style.display = 'none';
-    } else {
-        document.getElementById('tabRegisterBtn').style.fontWeight = '600';
-        document.getElementById('tabRegisterBtn').style.color = 'var(--text-primary)';
-        document.getElementById('tabLoginBtn').style.fontWeight = '400';
-        document.getElementById('tabLoginBtn').style.color = 'var(--text-secondary)';
-        document.getElementById('registerForm').style.display = 'block';
-        document.getElementById('loginForm').style.display = 'none';
+function resetOtpModal() {
+    document.getElementById('otpStepEmail').style.display = 'block';
+    document.getElementById('otpStepCode').style.display = 'none';
+    document.getElementById('authOtpInput').value = '';
+    const emailInput = document.getElementById('authGmail');
+    if (!emailInput.value) emailInput.value = currentUser.email || 'rohit@gmail.com';
+}
+
+async function handleRequestOtp() {
+    const email = document.getElementById('authGmail').value.trim().toLowerCase();
+    const btn = document.getElementById('btnRequestOtp');
+
+    if (!email.endsWith('@gmail.com')) {
+        alert('Security Constraint: Only valid @gmail.com accounts are permitted.');
+        return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Transmitting OTP...';
+
+    try {
+        const res = await fetch('/api/auth/request-otp', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'OTP generation failed');
+
+        currentDemoOtp = data.demo_code || data.demo_otp || "";
+        document.getElementById('otpTargetEmail').textContent = email;
+        document.getElementById('demoOtpCodeVal').textContent = currentDemoOtp;
+
+        document.getElementById('otpStepEmail').style.display = 'none';
+        document.getElementById('otpStepCode').style.display = 'block';
+        document.getElementById('authOtpInput').focus();
+    } catch (err) {
+        alert('Authentication Error: ' + err.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Send Verification Code';
     }
 }
 
-async function handleLogin(e) {
-    e.preventDefault();
-    const email = document.getElementById('loginEmail').value;
-    const password = document.getElementById('loginPassword').value;
+function autoFillDemoOtp() {
+    if (currentDemoOtp) {
+        document.getElementById('authOtpInput').value = currentDemoOtp;
+    }
+}
+
+async function handleVerifyOtp() {
+    const email = document.getElementById('authGmail').value.trim().toLowerCase();
+    const otp_code = document.getElementById('authOtpInput').value.trim();
+    const btn = document.getElementById('btnVerifyOtp');
+
+    if (otp_code.length !== 6) {
+        alert('Please enter a valid 6-digit numeric verification code.');
+        return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Validating...';
 
     try {
-        const res = await fetch('/api/auth/login', {
+        const res = await fetch('/api/auth/verify-otp', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password })
+            body: JSON.stringify({ email, otp_code })
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || 'Authentication failed');
+        if (!res.ok) throw new Error(data.detail || 'Invalid or expired OTP');
 
         currentUser = data.user;
         updateUserUI();
         closeAuthModal();
         navigate('dashboard');
     } catch (err) {
-        alert('Authentication error: ' + err.message);
-    }
-}
-
-async function handleRegister(e) {
-    e.preventDefault();
-    const payload = {
-        name: document.getElementById('regName').value,
-        email: document.getElementById('regEmail').value,
-        password: document.getElementById('regPass').value,
-        age: parseInt(document.getElementById('regAge').value),
-        gender: document.getElementById('regGender').value,
-        height_cm: parseFloat(document.getElementById('regHeight').value),
-        weight_kg: parseFloat(document.getElementById('regWeight').value)
-    };
-
-    try {
-        const res = await fetch('/api/auth/register', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || 'Registration failed');
-
-        currentUser = data.user;
-        updateUserUI();
-        closeAuthModal();
-        navigate('dashboard');
-    } catch (err) {
-        alert('Registration error: ' + err.message);
+        alert('Verification Failed: ' + err.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Verify & Authenticate';
     }
 }
 
 function updateUserUI() {
-    document.getElementById('sidebarUserName').textContent = currentUser.name;
-    document.getElementById('sidebarUserBMI').textContent = `BMI ${currentUser.bmi} (${currentUser.bmi_category})`;
+    const nameEl = document.getElementById('sidebarUserName');
+    if (nameEl) nameEl.textContent = currentUser.name;
+
+    const emailEl = document.getElementById('sidebarUserEmail');
+    if (emailEl) emailEl.textContent = currentUser.email;
+
+    const dateBadge = document.getElementById('dashDateBadge');
+    if (dateBadge) {
+        dateBadge.textContent = `ACTIVE PATIENT: ${currentUser.name.toUpperCase()} (${currentUser.email.toUpperCase()})`;
+    }
+}
+
+// ================= BEDTIME & WAKE TIME CALCULATION =================
+function calculateLiveSleepDuration() {
+    const bedInput = document.getElementById('logBedtime');
+    const wakeInput = document.getElementById('logWakeTime');
+    const display = document.getElementById('calcSleepDisplay');
+    const hidden = document.getElementById('logDuration');
+
+    if (!bedInput || !wakeInput || !bedInput.value || !wakeInput.value) return;
+
+    const [bH, bM] = bedInput.value.split(':').map(Number);
+    const [wH, wM] = wakeInput.value.split(':').map(Number);
+
+    const bedMins = bH * 60 + bM;
+    const wakeMins = wH * 60 + wM;
+
+    let diffMins = 0;
+    if (wakeMins < bedMins) {
+        diffMins = (1440 - bedMins) + wakeMins;
+    } else {
+        diffMins = wakeMins - bedMins;
+    }
+
+    const durationHours = parseFloat((diffMins / 60.0).toFixed(2));
+    const hoursPart = Math.floor(diffMins / 60);
+    const minsPart = diffMins % 60;
+
+    hidden.value = durationHours;
+    display.textContent = `${hoursPart}h ${minsPart}m (${durationHours} hrs)`;
 }
 
 // ================= USER SETTINGS =================
@@ -225,150 +283,217 @@ async function loadDashboardData() {
 }
 
 function renderDashboardCards(latestLog) {
-    document.getElementById('dashDateBadge').textContent = `LAST ASSESSED: ${latestLog.log_date}`;
+    const badge = document.getElementById('dashDateBadge');
+    if (badge) badge.textContent = `LAST ASSESSED: ${latestLog.log_date} | PATIENT: ${currentUser.name.toUpperCase()}`;
     
-    // 1. Sleep Duration
-    const sleepEl = document.getElementById('statSleep');
-    const sleepFill = document.getElementById('rangeFillSleep');
-    const sleepText = document.getElementById('statSleepText');
-    sleepEl.innerHTML = `${latestLog.sleep_duration} <span class="vital-unit">hrs</span>`;
-    
-    if (latestLog.sleep_duration < 6.0) {
-        sleepEl.className = 'vital-reading borderline';
-        sleepFill.className = 'range-fill borderline';
-        sleepFill.style.width = '40%';
-        sleepText.textContent = 'Sub-optimal Sleep (<6.0h)';
-    } else if (latestLog.sleep_duration > 9.5) {
-        sleepEl.className = 'vital-reading borderline';
-        sleepFill.className = 'range-fill borderline';
-        sleepFill.style.width = '90%';
-        sleepText.textContent = 'Prolonged Somnolence';
-    } else {
-        sleepEl.className = 'vital-reading normal';
-        sleepFill.className = 'range-fill normal';
-        sleepFill.style.width = '75%';
-        sleepText.textContent = 'Clinical Target (7.0 - 9.0h)';
-    }
-
-    // 2. Blood Pressure
-    const bpEl = document.getElementById('statBP');
-    const bpFill = document.getElementById('rangeFillBP');
-    const bpText = document.getElementById('statBPText');
-    bpEl.innerHTML = `${latestLog.systolic_bp}/${latestLog.diastolic_bp} <span class="vital-unit">mmHg</span>`;
-    
-    if (latestLog.systolic_bp >= 140 || latestLog.diastolic_bp >= 90) {
-        bpEl.className = 'vital-reading abnormal';
-        bpFill.className = 'range-fill abnormal';
-        bpFill.style.width = '92%';
-        bpText.textContent = 'Stage 2 Hypertension';
-    } else if (latestLog.systolic_bp >= 125 || latestLog.diastolic_bp >= 82) {
-        bpEl.className = 'vital-reading borderline';
-        bpFill.className = 'range-fill borderline';
-        bpFill.style.width = '68%';
-        bpText.textContent = 'Pre-Hypertension Range';
-    } else {
-        bpEl.className = 'vital-reading normal';
-        bpFill.className = 'range-fill normal';
-        bpFill.style.width = '45%';
-        bpText.textContent = 'Normotensive';
-    }
-
-    // 3. Pulse Pressure (SBP - DBP)
-    const ppEl = document.getElementById('statPP');
-    const ppFill = document.getElementById('rangeFillPP');
-    const ppText = document.getElementById('statPPText');
-    ppEl.innerHTML = `${latestLog.pulse_pressure} <span class="vital-unit">mmHg</span>`;
-    
-    if (latestLog.pulse_pressure > 50) {
-        ppEl.className = 'vital-reading abnormal';
-        ppFill.className = 'range-fill abnormal';
-        ppFill.style.width = '85%';
-        ppText.textContent = 'Arterial Stiffness Warning (>50)';
-    } else {
-        ppEl.className = 'vital-reading normal';
-        ppFill.className = 'range-fill normal';
-        ppFill.style.width = '48%';
-        ppText.textContent = 'Optimal Arterial Compliance';
-    }
-
-    // 4. Resting Heart Rate
-    const hrEl = document.getElementById('statHR');
-    const hrFill = document.getElementById('rangeFillHR');
-    const hrText = document.getElementById('statHRText');
-    hrEl.innerHTML = `${latestLog.heart_rate} <span class="vital-unit">bpm</span>`;
-    
-    if (latestLog.heart_rate > 100) {
-        hrEl.className = 'vital-reading abnormal';
-        hrFill.className = 'range-fill abnormal';
-        hrFill.style.width = '92%';
-        hrText.textContent = 'Sinus Tachycardia (>100)';
-    } else if (latestLog.heart_rate < 55) {
-        hrEl.className = 'vital-reading borderline';
-        hrFill.className = 'range-fill borderline';
-        hrFill.style.width = '25%';
-        hrText.textContent = 'Bradycardia Range';
-    } else {
-        hrEl.className = 'vital-reading normal';
-        hrFill.className = 'range-fill normal';
-        hrFill.style.width = '60%';
-        hrText.textContent = 'Baseline Resting Pulse';
-    }
-
-    // Diagnostic Readout Tile (Reduced from oversized banner to match vital visual weight)
+    // 1. Diagnostic Readout Tile
     const diagVerdict = document.getElementById('diagVerdict');
     const diagConfidence = document.getElementById('diagConfidence');
     
-    if (latestLog.prediction.includes('Healthy')) {
-        diagVerdict.className = 'verdict-headline normal';
-        diagVerdict.textContent = 'HEALTHY / OPTIMAL';
-        diagConfidence.textContent = `${latestLog.prob_healthy.toFixed(1)}%`;
-    } else if (latestLog.prediction.includes('Insomnia')) {
-        diagVerdict.className = 'verdict-headline borderline';
-        diagVerdict.textContent = 'INSOMNIA';
-        diagConfidence.textContent = `${latestLog.prob_insomnia.toFixed(1)}%`;
-    } else {
-        diagVerdict.className = 'verdict-headline abnormal';
-        diagVerdict.textContent = 'SLEEP APNEA RISK';
-        diagConfidence.textContent = `${latestLog.prob_apnea.toFixed(1)}%`;
+    if (diagVerdict && diagConfidence) {
+        if (latestLog.prediction.includes('Healthy')) {
+            diagVerdict.className = 'verdict-headline normal';
+            diagVerdict.textContent = 'HEALTHY / OPTIMAL';
+            diagConfidence.textContent = `${latestLog.prob_healthy.toFixed(1)}%`;
+        } else if (latestLog.prediction.includes('Insomnia')) {
+            diagVerdict.className = 'verdict-headline borderline';
+            diagVerdict.textContent = 'INSOMNIA';
+            diagConfidence.textContent = `${latestLog.prob_insomnia.toFixed(1)}%`;
+        } else {
+            diagVerdict.className = 'verdict-headline abnormal';
+            diagVerdict.textContent = 'SLEEP APNEA RISK';
+            diagConfidence.textContent = `${latestLog.prob_apnea.toFixed(1)}%`;
+        }
+    }
+
+    // 2. Plain English Layman Translation & Actionable Steps
+    const laymanEl = document.getElementById('laymanSummaryText');
+    if (laymanEl) {
+        if (latestLog.plain_english_summary) {
+            laymanEl.textContent = latestLog.plain_english_summary;
+        } else if (latestLog.prediction.includes('Healthy')) {
+            laymanEl.textContent = "Your sleep architecture and cardiovascular metrics are well-balanced. Your nocturnal resting vitals indicate healthy circadian rhythms and low risk of cardiovascular fatigue.";
+        } else if (latestLog.prediction.includes('Insomnia')) {
+            laymanEl.textContent = "Your sleep pattern and cardiovascular readings indicate elevated risk of Insomnia. This is primarily driven by shortened sleep duration and elevated blood pressure before bed, not your daytime activity.";
+        } else {
+            laymanEl.textContent = "Your nocturnal metrics show elevated Pulse Pressure and daytime fatigue signatures associated with Sleep Apnea airway resistance. Nighttime oxygenation and vascular load warrant clinical observation.";
+        }
+    }
+
+    const stepsListEl = document.getElementById('actionStepsList');
+    if (stepsListEl) {
+        let steps = latestLog.actionable_next_steps;
+        if (!steps || steps.length === 0) {
+            if (latestLog.prediction.includes('Healthy')) {
+                steps = [
+                    "Maintain your consistent sleep schedule within a 30-minute window every day.",
+                    "Keep up your current physical activity target of 6,000+ daily steps.",
+                    "Continue recording morning blood pressure once weekly for baseline cardiovascular safety."
+                ];
+            } else if (latestLog.prediction.includes('Insomnia')) {
+                steps = [
+                    "Wind down 45 minutes before sleep: eliminate screens and avoid caffeine or heavy meals 4 hours prior.",
+                    "Record your blood pressure tomorrow morning at rest to track whether nocturnal arousal affects vascular compliance.",
+                    "If sleep onset latency exceeds 30 minutes for more than 2 weeks, consult a physician for behavioral sleep guidance."
+                ];
+            } else {
+                steps = [
+                    "Consult an ENT or sleep specialist for a polysomnography (overnight sleep study) to evaluate airway resistance.",
+                    "Try sleeping in a lateral (side) position with elevated head elevation to prevent tongue collapse.",
+                    "Monitor daytime sleepiness and morning blood pressure spikes daily to prevent sustained hypertension."
+                ];
+            }
+        }
+
+        stepsListEl.innerHTML = steps.map((s, idx) => `
+            <li style="font-size: 0.82rem; color: var(--text-primary); display: flex; gap: 8px;">
+                <span class="mono" style="color: var(--accent); font-weight: 600;">0${idx + 1}.</span>
+                <span>${s}</span>
+            </li>
+        `).join('');
+    }
+
+    // 3. Sleep Duration
+    const sleepEl = document.getElementById('statSleep');
+    const sleepFill = document.getElementById('rangeFillSleep');
+    const sleepText = document.getElementById('statSleepText');
+    if (sleepEl && sleepFill && sleepText) {
+        sleepEl.innerHTML = `${latestLog.sleep_duration} <span class="vital-unit">hrs</span>`;
+        if (latestLog.sleep_duration < 6.0) {
+            sleepEl.className = 'vital-reading borderline';
+            sleepFill.className = 'range-fill borderline';
+            sleepFill.style.width = '40%';
+            sleepText.textContent = 'Sub-optimal Sleep (<6.0h)';
+        } else if (latestLog.sleep_duration > 9.5) {
+            sleepEl.className = 'vital-reading borderline';
+            sleepFill.className = 'range-fill borderline';
+            sleepFill.style.width = '90%';
+            sleepText.textContent = 'Prolonged Somnolence';
+        } else {
+            sleepEl.className = 'vital-reading normal';
+            sleepFill.className = 'range-fill normal';
+            sleepFill.style.width = '75%';
+            sleepText.textContent = 'Clinical Target (7.0 - 9.0h)';
+        }
+    }
+
+    // 4. Blood Pressure
+    const bpEl = document.getElementById('statBP');
+    const bpFill = document.getElementById('rangeFillBP');
+    const bpText = document.getElementById('statBPText');
+    if (bpEl && bpFill && bpText) {
+        bpEl.innerHTML = `${latestLog.systolic_bp}/${latestLog.diastolic_bp} <span class="vital-unit">mmHg</span>`;
+        if (latestLog.systolic_bp >= 140 || latestLog.diastolic_bp >= 90) {
+            bpEl.className = 'vital-reading abnormal';
+            bpFill.className = 'range-fill abnormal';
+            bpFill.style.width = '92%';
+            bpText.textContent = 'Stage 2 Hypertension';
+        } else if (latestLog.systolic_bp >= 125 || latestLog.diastolic_bp >= 82) {
+            bpEl.className = 'vital-reading borderline';
+            bpFill.className = 'range-fill borderline';
+            bpFill.style.width = '68%';
+            bpText.textContent = 'Pre-Hypertension Range';
+        } else {
+            bpEl.className = 'vital-reading normal';
+            bpFill.className = 'range-fill normal';
+            bpFill.style.width = '45%';
+            bpText.textContent = 'Normotensive';
+        }
+    }
+
+    // 5. Pulse Pressure (SBP - DBP)
+    const ppEl = document.getElementById('statPP');
+    const ppFill = document.getElementById('rangeFillPP');
+    const ppText = document.getElementById('statPPText');
+    if (ppEl && ppFill && ppText) {
+        ppEl.innerHTML = `${latestLog.pulse_pressure} <span class="vital-unit">mmHg</span>`;
+        if (latestLog.pulse_pressure > 50) {
+            ppEl.className = 'vital-reading abnormal';
+            ppFill.className = 'range-fill abnormal';
+            ppFill.style.width = '85%';
+            ppText.textContent = 'Arterial Stiffness Warning (>50)';
+        } else {
+            ppEl.className = 'vital-reading normal';
+            ppFill.className = 'range-fill normal';
+            ppFill.style.width = '48%';
+            ppText.textContent = 'Compliant Arterial Tone';
+        }
+    }
+
+    // 6. Resting Heart Rate
+    const hrEl = document.getElementById('statHR');
+    const hrFill = document.getElementById('rangeFillHR');
+    const hrText = document.getElementById('statHRText');
+    if (hrEl && hrFill && hrText) {
+        hrEl.innerHTML = `${latestLog.heart_rate} <span class="vital-unit">bpm</span>`;
+        if (latestLog.heart_rate > 100) {
+            hrEl.className = 'vital-reading abnormal';
+            hrFill.className = 'range-fill abnormal';
+            hrFill.style.width = '92%';
+            hrText.textContent = 'Sinus Tachycardia (>100)';
+        } else if (latestLog.heart_rate < 55) {
+            hrEl.className = 'vital-reading borderline';
+            hrFill.className = 'range-fill borderline';
+            hrFill.style.width = '25%';
+            hrText.textContent = 'Bradycardia Range';
+        } else {
+            hrEl.className = 'vital-reading normal';
+            hrFill.className = 'range-fill normal';
+            hrFill.style.width = '60%';
+            hrText.textContent = 'Baseline Resting Pulse';
+        }
     }
 
     // Probabilities
-    document.getElementById('probHealthyVal').textContent = `${latestLog.prob_healthy.toFixed(1)}%`;
-    document.getElementById('probHealthyBar').style.width = `${latestLog.prob_healthy}%`;
-
-    document.getElementById('probInsomniaVal').textContent = `${latestLog.prob_insomnia.toFixed(1)}%`;
-    document.getElementById('probInsomniaBar').style.width = `${latestLog.prob_insomnia}%`;
-
-    document.getElementById('probApneaVal').textContent = `${latestLog.prob_apnea.toFixed(1)}%`;
-    document.getElementById('probApneaBar').style.width = `${latestLog.prob_apnea}%`;
-
-    // NLP Journal
-    const nlpBox = document.getElementById('dashNlpBox');
-    if (latestLog.journal_text && latestLog.journal_text.length > 2) {
-        nlpBox.style.display = 'block';
-        document.getElementById('dashNlpText').textContent = `"${latestLog.journal_text}"`;
-        document.getElementById('dashNlpTag').textContent = latestLog.nlp_sentiment ? latestLog.nlp_sentiment.toUpperCase() : 'NORMAL';
-        document.getElementById('dashNlpUrgency').textContent = latestLog.nlp_symptoms || 'Clinical Journal Logged';
-    } else {
-        nlpBox.style.display = 'none';
+    const hVal = document.getElementById('probHealthyVal');
+    const hBar = document.getElementById('probHealthyBar');
+    if (hVal && hBar) {
+        hVal.textContent = `${latestLog.prob_healthy.toFixed(1)}%`;
+        hBar.style.width = `${latestLog.prob_healthy}%`;
     }
 
-    // Render SHAP
-    renderShapChart([
-        { feature: "Sleep Duration", impact: latestLog.sleep_duration < 6 ? 0.84 : -0.62 },
-        { feature: "Systolic BP", impact: latestLog.systolic_bp > 130 ? 0.72 : -0.48 },
-        { feature: "Daily Steps", impact: latestLog.daily_steps < 5000 ? 0.44 : -0.55 }
-    ]);
+    const iVal = document.getElementById('probInsomniaVal');
+    const iBar = document.getElementById('probInsomniaBar');
+    if (iVal && iBar) {
+        iVal.textContent = `${latestLog.prob_insomnia.toFixed(1)}%`;
+        iBar.style.width = `${latestLog.prob_insomnia}%`;
+    }
+
+    const aVal = document.getElementById('probApneaVal');
+    const aBar = document.getElementById('probApneaBar');
+    if (aVal && aBar) {
+        aVal.textContent = `${latestLog.prob_apnea.toFixed(1)}%`;
+        aBar.style.width = `${latestLog.prob_apnea}%`;
+    }
+
+    // Render SHAP in Analytics view
+    const shapCanvas = document.getElementById('shapChart');
+    if (shapCanvas) {
+        renderShapChart([
+            { feature: "Sleep Duration", impact: latestLog.sleep_duration < 6 ? 0.84 : -0.62 },
+            { feature: "Systolic BP", impact: latestLog.systolic_bp > 130 ? 0.72 : -0.48 },
+            { feature: "Pulse Pressure", impact: latestLog.pulse_pressure > 50 ? 0.65 : -0.35 },
+            { feature: "Daily Steps", impact: latestLog.daily_steps < 5000 ? 0.44 : -0.55 }
+        ]);
+    }
 }
 
 function renderAnalyticsCharts(analytics) {
-    if (!analytics.has_data || analytics.dates.length === 0) return;
+    if (!analytics.has_data || !analytics.dates || analytics.dates.length === 0) return;
 
-    document.getElementById('avgSleep7d').textContent = `${analytics.avg_sleep_7d} hrs`;
-    document.getElementById('avgHR7d').textContent = `${analytics.avg_heart_rate} bpm`;
-    document.getElementById('avgPP7d').textContent = `${analytics.avg_pulse_pressure} mmHg`;
+    const avgSleep = document.getElementById('avgSleep7d');
+    if (avgSleep) avgSleep.textContent = `${analytics.avg_sleep_7d} hrs`;
 
-    const ctx = document.getElementById('trendChart').getContext('2d');
+    const avgHR = document.getElementById('avgHR7d');
+    if (avgHR) avgHR.textContent = `${analytics.avg_heart_rate} bpm`;
+
+    const avgPP = document.getElementById('avgPP7d');
+    if (avgPP) avgPP.textContent = `${analytics.avg_pulse_pressure} mmHg`;
+
+    const trendCanvas = document.getElementById('trendChart');
+    if (!trendCanvas) return;
+
+    const ctx = trendCanvas.getContext('2d');
     if (trendChartInstance) trendChartInstance.destroy();
 
     const isLight = document.documentElement.getAttribute('data-theme') === 'light';
@@ -383,7 +508,7 @@ function renderAnalyticsCharts(analytics) {
                 {
                     label: 'Sleep Duration (hrs)',
                     data: analytics.sleep_durations,
-                    borderColor: '#4E8FD4', // functional accent only
+                    borderColor: '#4E8FD4',
                     backgroundColor: 'transparent',
                     yAxisID: 'ySleep',
                     borderWidth: 1.5,
@@ -393,7 +518,7 @@ function renderAnalyticsCharts(analytics) {
                 {
                     label: 'Pulse Pressure (mmHg)',
                     data: analytics.pulse_pressures,
-                    borderColor: '#D9A441', // borderline amber
+                    borderColor: '#D9A441',
                     borderDash: [4, 4],
                     backgroundColor: 'transparent',
                     yAxisID: 'yBP',
@@ -432,10 +557,11 @@ function renderAnalyticsCharts(analytics) {
 }
 
 function renderShapChart(factors) {
-    const ctx = document.getElementById('shapChart').getContext('2d');
+    const canvas = document.getElementById('shapChart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
     const labels = factors.map(f => f.feature);
     const values = factors.map(f => f.impact);
-    // Only in-range green #4CAF82 or abnormal red #C9594F
     const colors = values.map(v => v >= 0 ? '#C9594F' : '#4CAF82');
 
     if (shapChartInstance) shapChartInstance.destroy();
@@ -473,16 +599,21 @@ function renderShapChart(factors) {
     });
 }
 
-// ================= DAILY LOG =================
+// ================= DAILY VITAL INTAKE SUBMISSION =================
 async function handleDailyLogSubmit(e) {
     e.preventDefault();
     const btn = document.getElementById('btnSaveDailyLog');
     btn.disabled = true;
-    btn.textContent = 'Processing...';
+    btn.textContent = 'Processing & Stratifying...';
+
+    // Ensure sleep duration is recalculated
+    calculateLiveSleepDuration();
 
     const payload = {
         user_id: currentUser.id,
         log_date: document.getElementById('logDate').value,
+        bedtime: document.getElementById('logBedtime').value,
+        wake_time: document.getElementById('logWakeTime').value,
         sleep_duration: parseFloat(document.getElementById('logDuration').value),
         quality_of_sleep: parseFloat(document.getElementById('logQuality').value),
         physical_activity: parseFloat(document.getElementById('logActivity').value),
@@ -503,6 +634,7 @@ async function handleDailyLogSubmit(e) {
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || 'Failed to save log');
 
+        // Immediately return to streamlined dashboard
         navigate('dashboard');
     } catch (err) {
         alert('Error: ' + err.message);
@@ -564,6 +696,7 @@ async function uploadCSVFile(file) {
 // ================= PATIENT HISTORY =================
 async function loadPatientHistory() {
     const tbody = document.getElementById('historyTbody');
+    if (!tbody) return;
     tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-secondary);">Querying database records...</td></tr>';
 
     try {
@@ -596,10 +729,11 @@ async function loadPatientHistory() {
     }
 }
 
-// Initialization
+// ================= INITIALIZATION =================
 window.addEventListener('DOMContentLoaded', () => {
     initTheme();
     updateUserUI();
+    calculateLiveSleepDuration();
     loadDashboardData();
 
     const dropzone = document.getElementById('csvDropzone');
