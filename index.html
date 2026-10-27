@@ -1,0 +1,1239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SomnoSense: Clinical Sleep & Cardiovascular Risk Stratifier</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chart.js for SHAP Feature Visualizations -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-dark: #0B132B;
+            --bg-card: #1C2541;
+            --bg-card-hover: #222f54;
+            --border-subtle: #2A385E;
+            --accent-cyan: #48CAE4;
+            --accent-cyan-glow: rgba(72, 202, 228, 0.25);
+            --accent-teal: #5BC0BE;
+            --text-main: #FFFFFF;
+            --text-secondary: #94A3B8;
+            --text-muted: #64748B;
+            
+            --color-healthy: #06D6A0;
+            --color-healthy-bg: rgba(6, 214, 160, 0.15);
+            --color-insomnia: #FFD166;
+            --color-insomnia-bg: rgba(255, 209, 102, 0.15);
+            --color-apnea: #EF476F;
+            --color-apnea-bg: rgba(239, 71, 111, 0.18);
+            
+            --radius-md: 12px;
+            --radius-lg: 18px;
+            --shadow-card: 0 10px 30px -5px rgba(0, 0, 0, 0.4), 0 0 1px 1px rgba(255, 255, 255, 0.05);
+            --transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            min-height: 100vh;
+            line-height: 1.5;
+            background-image: 
+                radial-gradient(circle at 15% 15%, rgba(72, 202, 228, 0.08) 0%, transparent 40%),
+                radial-gradient(circle at 85% 85%, rgba(91, 192, 190, 0.06) 0%, transparent 45%);
+            background-attachment: fixed;
+            padding-bottom: 40px;
+        }
+
+        /* Container */
+        .container {
+            max-width: 1320px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        /* Top Header */
+        header {
+            border-bottom: 1px solid var(--border-subtle);
+            background: rgba(11, 19, 43, 0.85);
+            backdrop-filter: blur(14px);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            padding: 16px 0;
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .brand-section {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .brand-logo {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #48CAE4 0%, #1C2541 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 20px rgba(72, 202, 228, 0.35);
+            font-size: 22px;
+        }
+
+        .brand-title h1 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.35rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .brand-title h1 span.pill {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            background: rgba(72, 202, 228, 0.15);
+            color: var(--accent-cyan);
+            border: 1px solid rgba(72, 202, 228, 0.3);
+            padding: 2px 8px;
+            border-radius: 20px;
+        }
+
+        .brand-title p {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        /* Sync Button */
+        .btn-sync {
+            background: linear-gradient(135deg, #48CAE4 0%, #0096C7 100%);
+            color: #0B132B;
+            font-weight: 700;
+            font-size: 0.85rem;
+            padding: 10px 18px;
+            border-radius: 10px;
+            border: none;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: var(--transition);
+            box-shadow: 0 4px 15px rgba(72, 202, 228, 0.3);
+        }
+
+        .btn-sync:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 22px rgba(72, 202, 228, 0.45);
+        }
+
+        .btn-sync:active {
+            transform: translateY(0);
+        }
+
+        .telemetry-badge {
+            font-size: 0.75rem;
+            padding: 6px 12px;
+            border-radius: 8px;
+            background: rgba(42, 56, 94, 0.6);
+            color: var(--text-secondary);
+            border: 1px solid var(--border-subtle);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--color-healthy);
+            box-shadow: 0 0 8px var(--color-healthy);
+        }
+
+        .status-dot.pulsing {
+            animation: pulse-dot 1.8s infinite;
+        }
+
+        @keyframes pulse-dot {
+            0% { transform: scale(0.95); opacity: 0.7; }
+            50% { transform: scale(1.3); opacity: 1; }
+            100% { transform: scale(0.95); opacity: 0.7; }
+        }
+
+        /* Presets Bar */
+        .presets-bar {
+            margin: 24px 0 16px 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            overflow-x: auto;
+            padding-bottom: 6px;
+        }
+
+        .presets-label {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            white-space: nowrap;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .preset-chip {
+            background: rgba(28, 37, 65, 0.8);
+            border: 1px solid var(--border-subtle);
+            color: var(--text-secondary);
+            font-size: 0.78rem;
+            padding: 6px 14px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: var(--transition);
+            white-space: nowrap;
+        }
+
+        .preset-chip:hover {
+            color: var(--text-main);
+            border-color: var(--accent-cyan);
+            background: var(--bg-card-hover);
+        }
+
+        .preset-chip.active {
+            background: rgba(72, 202, 228, 0.15);
+            border-color: var(--accent-cyan);
+            color: var(--accent-cyan);
+            font-weight: 600;
+        }
+
+        /* Grid Layout */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr 1.15fr;
+            gap: 28px;
+            align-items: start;
+        }
+
+        @media (max-width: 1024px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Cards */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-lg);
+            padding: 26px;
+            box-shadow: var(--shadow-card);
+            position: relative;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 22px;
+            padding-bottom: 14px;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .card-header h2 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.15rem;
+            font-weight: 600;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card-header .header-tag {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            background: rgba(11, 19, 43, 0.6);
+            padding: 4px 10px;
+            border-radius: 6px;
+            border: 1px solid var(--border-subtle);
+        }
+
+        /* Form Controls */
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 18px 20px;
+        }
+
+        .form-group.full-width {
+            grid-column: span 2;
+        }
+
+        .form-label-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+
+        label {
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+
+        .value-display {
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--accent-cyan);
+            background: rgba(11, 19, 43, 0.7);
+            padding: 2px 8px;
+            border-radius: 6px;
+            border: 1px solid rgba(72, 202, 228, 0.2);
+        }
+
+        /* Custom Sliders */
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            border-radius: 4px;
+            background: #2A385E;
+            outline: none;
+            transition: var(--transition);
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--accent-cyan);
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(72, 202, 228, 0.7);
+            transition: transform 0.15s ease;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        /* Selects */
+        select, input[type="text"] {
+            width: 100%;
+            padding: 10px 14px;
+            background: #0B132B;
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-md);
+            color: var(--text-main);
+            font-size: 0.85rem;
+            outline: none;
+            transition: var(--transition);
+        }
+
+        select:focus, input[type="text"]:focus {
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 0 3px var(--accent-cyan-glow);
+        }
+
+        /* Action Button */
+        .btn-predict {
+            width: 100%;
+            margin-top: 24px;
+            padding: 14px;
+            border-radius: var(--radius-md);
+            background: linear-gradient(135deg, #48CAE4 0%, #0077B6 100%);
+            color: #0B132B;
+            font-family: 'Outfit', sans-serif;
+            font-size: 1rem;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: var(--transition);
+            box-shadow: 0 6px 20px rgba(72, 202, 228, 0.35);
+        }
+
+        .btn-predict:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 26px rgba(72, 202, 228, 0.5);
+        }
+
+        .btn-predict:active {
+            transform: translateY(0);
+        }
+
+        /* Clinical Intelligence (Right Card) */
+        .verdict-banner {
+            padding: 20px;
+            border-radius: var(--radius-md);
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border: 1px solid transparent;
+            transition: var(--transition);
+        }
+
+        .verdict-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .verdict-subtitle {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+
+        .verdict-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.6rem;
+            font-weight: 800;
+            letter-spacing: -0.01em;
+        }
+
+        .verdict-badge {
+            font-size: 0.85rem;
+            font-weight: 700;
+            padding: 6px 14px;
+            border-radius: 30px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* Verdict Themes */
+        .verdict-banner.healthy {
+            background: var(--color-healthy-bg);
+            border-color: rgba(6, 214, 160, 0.4);
+        }
+        .verdict-banner.healthy .verdict-title { color: var(--color-healthy); }
+        .verdict-banner.healthy .verdict-badge { background: var(--color-healthy); color: #0B132B; }
+
+        .verdict-banner.insomnia {
+            background: var(--color-insomnia-bg);
+            border-color: rgba(255, 209, 102, 0.4);
+        }
+        .verdict-banner.insomnia .verdict-title { color: var(--color-insomnia); }
+        .verdict-banner.insomnia .verdict-badge { background: var(--color-insomnia); color: #0B132B; }
+
+        .verdict-banner.apnea {
+            background: var(--color-apnea-bg);
+            border-color: rgba(239, 71, 111, 0.4);
+        }
+        .verdict-banner.apnea .verdict-title { color: var(--color-apnea); }
+        .verdict-banner.apnea .verdict-badge { background: var(--color-apnea); color: #FFFFFF; }
+
+        /* Probability Bars */
+        .section-title {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--text-muted);
+            font-weight: 700;
+            margin: 18px 0 10px 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .prob-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            background: rgba(11, 19, 43, 0.5);
+            padding: 16px;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-subtle);
+        }
+
+        .prob-item {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .prob-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.82rem;
+            font-weight: 600;
+        }
+
+        .prob-bar-container {
+            width: 100%;
+            height: 10px;
+            background: #2A385E;
+            border-radius: 6px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .prob-bar {
+            height: 100%;
+            border-radius: 6px;
+            transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .prob-bar.healthy { background: var(--color-healthy); }
+        .prob-bar.insomnia { background: var(--color-insomnia); }
+        .prob-bar.apnea { background: var(--color-apnea); }
+
+        /* Biomarker Callout */
+        .biomarker-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 14px;
+        }
+
+        .biomarker-box {
+            background: rgba(11, 19, 43, 0.6);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-md);
+            padding: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            transition: var(--transition);
+        }
+
+        .biomarker-box.alert {
+            border-color: rgba(239, 71, 111, 0.6);
+            background: rgba(239, 71, 111, 0.08);
+        }
+
+        .biomarker-label {
+            font-size: 0.72rem;
+            color: var(--text-secondary);
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .biomarker-value {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--text-main);
+            display: flex;
+            align-items: baseline;
+            gap: 4px;
+        }
+
+        .biomarker-unit {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            font-weight: 400;
+        }
+
+        .biomarker-status {
+            font-size: 0.74rem;
+            font-weight: 600;
+        }
+
+        .biomarker-status.normal { color: var(--color-healthy); }
+        .biomarker-status.warning { color: var(--color-apnea); }
+
+        /* SHAP Explainer Chart Card */
+        .shap-container {
+            margin-top: 18px;
+            background: rgba(11, 19, 43, 0.6);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-md);
+            padding: 16px;
+        }
+
+        .shap-chart-wrapper {
+            position: relative;
+            height: 180px;
+            width: 100%;
+        }
+
+        /* Toast Notifications */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: var(--bg-card);
+            border: 1px solid var(--accent-cyan);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            padding: 12px 20px;
+            border-radius: var(--radius-md);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.85rem;
+            z-index: 1000;
+            transform: translateY(100px);
+            opacity: 0;
+            transition: var(--transition);
+        }
+
+        .toast.visible {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        /* Micro-animations */
+        @keyframes flash-green {
+            0% { background-color: rgba(6, 214, 160, 0.4); }
+            100% { background-color: transparent; }
+        }
+
+        .flash-updated {
+            animation: flash-green 1s ease-out;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header Navigation -->
+    <header>
+        <div class="container header-content">
+            <div class="brand-section">
+                <div class="brand-logo">🌙</div>
+                <div class="brand-title">
+                    <h1>SomnoSense <span class="pill">Honours Edition</span></h1>
+                    <p>Clinical Sleep & Cardiovascular Risk Stratifier</p>
+                </div>
+            </div>
+
+            <div class="header-actions">
+                <div class="telemetry-badge" id="telemetryBadge">
+                    <div class="status-dot pulsing" id="statusDot"></div>
+                    <span id="telemetryText">Source: Manual Parameters</span>
+                </div>
+                <button class="btn-sync" id="btnSync" onclick="simulateWearableSync()">
+                    <span>⚡</span> Sync Apple / Google Health
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <!-- Quick Preset Switcher for Demonstrations -->
+        <div class="presets-bar">
+            <span class="presets-label">Clinical Profiles:</span>
+            <button class="preset-chip" onclick="loadProfile('healthy_doc')">👨‍⚕️ Healthy Doctor (28y)</button>
+            <button class="preset-chip active" onclick="loadProfile('wearable_synced')">⚡ Wearable Live Telemetry</button>
+            <button class="preset-chip" onclick="loadProfile('insomnia_exec')">💼 Insomnia Profile (44y)</button>
+            <button class="preset-chip" onclick="loadProfile('apnea_nurse')">👩‍⚕️ Sleep Apnea Risk (59y)</button>
+        </div>
+
+        <div class="dashboard-grid">
+            <!-- Left Card: Biometrics & Lifestyle Telemetry -->
+            <section class="card" id="inputCard">
+                <div class="card-header">
+                    <h2><span>📊</span> Patient Telemetry</h2>
+                    <span class="header-tag">XGBoost Feature Set</span>
+                </div>
+
+                <form id="patientForm" onsubmit="event.preventDefault(); runDiagnosis();">
+                    <div class="form-grid">
+                        <!-- Age -->
+                        <div class="form-group">
+                            <div class="form-label-row">
+                                <label for="inputAge">Age (Years)</label>
+                                <span class="value-display" id="valAge">42</span>
+                            </div>
+                            <input type="range" id="inputAge" min="18" max="80" value="42" oninput="updateVal('Age', this.value)">
+                        </div>
+
+                        <!-- Gender -->
+                        <div class="form-group">
+                            <div class="form-label-row">
+                                <label for="inputGender">Biological Sex</label>
+                            </div>
+                            <select id="inputGender">
+                                <option value="Male">Male</option>
+                                <option value="Female">Female</option>
+                            </select>
+                        </div>
+
+                        <!-- Sleep Duration -->
+                        <div class="form-group">
+                            <div class="form-label-row">
+                                <label for="inputSleepDuration">Sleep Duration</label>
+                                <span class="value-display" id="valSleepDuration">5.2 hrs</span>
+                            </div>
+                            <input type="range" id="inputSleepDuration" min="3.0" max="10.0" step="0.1" value="5.2" oninput="updateVal('SleepDuration', this.value + ' hrs')">
+                        </div>
+
+                        <!-- Sleep Quality -->
+                        <div class="form-group">
+                            <div class="form-label-row">
+                                <label for="inputQualityOfSleep">Sleep Quality Score</label>
+                                <span class="value-display" id="valQualityOfSleep">5 / 10</span>
+                            </div>
+                            <input type="range" id="inputQualityOfSleep" min="1" max="10" value="5" oninput="updateVal('QualityOfSleep', this.value + ' / 10')">
+                        </div>
+
+                        <!-- Physical Activity -->
+                        <div class="form-group">
+                            <div class="form-label-row">
+                                <label for="inputActivity">Daily Activity Level</label>
+                                <span class="value-display" id="valActivity">35 min</span>
+                            </div>
+                            <input type="range" id="inputActivity" min="10" max="120" value="35" oninput="updateVal('Activity', this.value + ' min')">
+                        </div>
+
+                        <!-- Stress Level -->
+                        <div class="form-group">
+                            <div class="form-label-row">
+                                <label for="inputStress">Perceived Stress</label>
+                                <span class="value-display" id="valStress">8 / 10</span>
+                            </div>
+                            <input type="range" id="inputStress" min="1" max="10" value="8" oninput="updateVal('Stress', this.value + ' / 10')">
+                        </div>
+
+                        <!-- Heart Rate -->
+                        <div class="form-group">
+                            <div class="form-label-row">
+                                <label for="inputHeartRate">Resting Heart Rate</label>
+                                <span class="value-display" id="valHeartRate">84 bpm</span>
+                            </div>
+                            <input type="range" id="inputHeartRate" min="50" max="115" value="84" oninput="updateVal('HeartRate', this.value + ' bpm')">
+                        </div>
+
+                        <!-- Daily Steps -->
+                        <div class="form-group">
+                            <div class="form-label-row">
+                                <label for="inputSteps">Daily Steps</label>
+                                <span class="value-display" id="valSteps">3,400</span>
+                            </div>
+                            <input type="range" id="inputSteps" min="1000" max="15000" step="100" value="3400" oninput="updateVal('Steps', Number(this.value).toLocaleString())">
+                        </div>
+
+                        <!-- Systolic BP -->
+                        <div class="form-group">
+                            <div class="form-label-row">
+                                <label for="inputSystolic">Systolic BP (mmHg)</label>
+                                <span class="value-display" id="valSystolic">135</span>
+                            </div>
+                            <input type="range" id="inputSystolic" min="95" max="175" value="135" oninput="updateVal('Systolic', this.value); updatePulsePressureCalc();">
+                        </div>
+
+                        <!-- Diastolic BP -->
+                        <div class="form-group">
+                            <div class="form-label-row">
+                                <label for="inputDiastolic">Diastolic BP (mmHg)</label>
+                                <span class="value-display" id="valDiastolic">88</span>
+                            </div>
+                            <input type="range" id="inputDiastolic" min="60" max="115" value="88" oninput="updateVal('Diastolic', this.value); updatePulsePressureCalc();">
+                        </div>
+
+                        <!-- BMI Category -->
+                        <div class="form-group full-width">
+                            <div class="form-label-row">
+                                <label for="inputBMI">BMI Category</label>
+                            </div>
+                            <select id="inputBMI">
+                                <option value="Normal">Normal Weight (18.5 - 24.9)</option>
+                                <option value="Overweight" selected>Overweight (25.0 - 29.9)</option>
+                                <option value="Obese">Obese (≥ 30.0)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn-predict" id="btnPredict">
+                        <span>⚡</span> Run Clinical Risk Stratification
+                    </button>
+                </form>
+            </section>
+
+            <!-- Right Card: Clinical Intelligence & Explainable AI -->
+            <section class="card" id="resultsCard">
+                <div class="card-header">
+                    <h2><span>🩺</span> Clinical Intelligence</h2>
+                    <span class="header-tag" id="apiStatusTag">API Online</span>
+                </div>
+
+                <!-- Primary Verdict Banner -->
+                <div class="verdict-banner insomnia" id="verdictBanner">
+                    <div class="verdict-info">
+                        <span class="verdict-subtitle">Primary Stratified Risk</span>
+                        <div class="verdict-title" id="verdictTitle">INSOMNIA</div>
+                    </div>
+                    <div class="verdict-badge" id="verdictBadge">
+                        <span>●</span> <span id="verdictConfidence">95.0% Confidence</span>
+                    </div>
+                </div>
+
+                <!-- Probability Dials / Bars -->
+                <div class="section-title">
+                    <span>Multiclass Probability Distribution</span>
+                    <span style="font-size: 0.72rem; color: var(--accent-cyan);">Softmax Output</span>
+                </div>
+                <div class="prob-group">
+                    <!-- Healthy -->
+                    <div class="prob-item">
+                        <div class="prob-header">
+                            <span>Healthy / Normal</span>
+                            <span id="probHealthyVal">1.0%</span>
+                        </div>
+                        <div class="prob-bar-container">
+                            <div class="prob-bar healthy" id="probHealthyBar" style="width: 1%;"></div>
+                        </div>
+                    </div>
+                    <!-- Insomnia -->
+                    <div class="prob-item">
+                        <div class="prob-header">
+                            <span>Insomnia Risk</span>
+                            <span id="probInsomniaVal">95.0%</span>
+                        </div>
+                        <div class="prob-bar-container">
+                            <div class="prob-bar insomnia" id="probInsomniaBar" style="width: 95%;"></div>
+                        </div>
+                    </div>
+                    <!-- Sleep Apnea -->
+                    <div class="prob-item">
+                        <div class="prob-header">
+                            <span>Sleep Apnea Risk</span>
+                            <span id="probApneaVal">4.0%</span>
+                        </div>
+                        <div class="prob-bar-container">
+                            <div class="prob-bar apnea" id="probApneaBar" style="width: 4%;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Cardiovascular & Sleep Biomarkers -->
+                <div class="section-title">
+                    <span>Cardiovascular & Metabolic Biomarkers</span>
+                    <span style="font-size: 0.72rem; color: var(--text-muted);">Engineered Features</span>
+                </div>
+                <div class="biomarker-grid">
+                    <div class="biomarker-box" id="pulsePressureBox">
+                        <span class="biomarker-label">Pulse Pressure (SBP - DBP)</span>
+                        <div class="biomarker-value">
+                            <span id="pulsePressureVal">47</span>
+                            <span class="biomarker-unit">mmHg</span>
+                        </div>
+                        <span class="biomarker-status normal" id="pulsePressureStatus">● Optimal Arterial Compliance</span>
+                    </div>
+
+                    <div class="biomarker-box">
+                        <span class="biomarker-label">Sleep Efficiency Index</span>
+                        <div class="biomarker-value">
+                            <span id="sleepEffVal">0.33</span>
+                            <span class="biomarker-unit">ratio</span>
+                        </div>
+                        <span class="biomarker-status normal" id="sleepEffStatus" style="color: var(--color-insomnia);">● Sleep Quality Deficit</span>
+                    </div>
+                </div>
+
+                <!-- Explainable AI (SHAP Insights) -->
+                <div class="section-title">
+                    <span>Explainable AI (SHAP Local Attributions)</span>
+                    <span style="font-size: 0.72rem; color: var(--accent-cyan);">Top 3 Drivers</span>
+                </div>
+                <div class="shap-container">
+                    <div class="shap-chart-wrapper">
+                        <canvas id="shapChart"></canvas>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Toast Notification -->
+    <div class="toast" id="toast">
+        <span id="toastIcon">⚡</span>
+        <span id="toastMsg">Telemetry synced from Wearable Stream</span>
+    </div>
+
+    <!-- Application Script -->
+    <script>
+        const API_URL = "http://127.0.0.1:8000/predict";
+        let shapChartInstance = null;
+
+        // Profile Presets
+        const PROFILES = {
+            wearable_synced: {
+                Age: 42,
+                Gender: "Male",
+                SleepDuration: 5.2,
+                QualityOfSleep: 5,
+                Activity: 35,
+                Stress: 8,
+                HeartRate: 84,
+                Steps: 3400,
+                Systolic: 135,
+                Diastolic: 88,
+                BMI: "Overweight",
+                source: "Wearable Sensor Stream (Synced 2m ago)"
+            },
+            healthy_doc: {
+                Age: 28,
+                Gender: "Male",
+                SleepDuration: 7.8,
+                QualityOfSleep: 9,
+                Activity: 65,
+                Stress: 3,
+                HeartRate: 64,
+                Steps: 10500,
+                Systolic: 118,
+                Diastolic: 76,
+                BMI: "Normal",
+                source: "Hospital Checkup Protocol (Verified)"
+            },
+            insomnia_exec: {
+                Age: 44,
+                Gender: "Female",
+                SleepDuration: 4.8,
+                QualityOfSleep: 4,
+                Activity: 25,
+                Stress: 9,
+                HeartRate: 88,
+                Steps: 3100,
+                Systolic: 138,
+                Diastolic: 89,
+                BMI: "Overweight",
+                source: "Executive Wellness Screen"
+            },
+            apnea_nurse: {
+                Age: 59,
+                Gender: "Female",
+                SleepDuration: 8.1,
+                QualityOfSleep: 9,
+                Activity: 75,
+                Stress: 3,
+                HeartRate: 72,
+                Steps: 7200,
+                Systolic: 142,
+                Diastolic: 94,
+                BMI: "Overweight",
+                source: "Sleep Lab Screening Telemetry"
+            }
+        };
+
+        function updateVal(name, displayVal) {
+            const el = document.getElementById('val' + name);
+            if (el) el.textContent = displayVal;
+        }
+
+        function updatePulsePressureCalc() {
+            const sys = parseFloat(document.getElementById('inputSystolic').value);
+            const dia = parseFloat(document.getElementById('inputDiastolic').value);
+            const pp = Math.round(sys - dia);
+            
+            const ppValEl = document.getElementById('pulsePressureVal');
+            const ppBoxEl = document.getElementById('pulsePressureBox');
+            const ppStatusEl = document.getElementById('pulsePressureStatus');
+            
+            ppValEl.textContent = pp;
+            if (pp > 50) {
+                ppBoxEl.classList.add('alert');
+                ppStatusEl.className = 'biomarker-status warning';
+                ppStatusEl.innerHTML = '⚠️ Elevated Pulse Pressure (>50 mmHg) · Arterial Stiffness Risk';
+            } else {
+                ppBoxEl.classList.remove('alert');
+                ppStatusEl.className = 'biomarker-status normal';
+                ppStatusEl.innerHTML = '● Optimal Arterial Compliance (<50 mmHg)';
+            }
+
+            // Sleep Efficiency calc
+            const dur = parseFloat(document.getElementById('inputSleepDuration').value);
+            const qual = parseFloat(document.getElementById('inputQualityOfSleep').value);
+            const eff = ((dur / 8.0) * (qual / 10.0)).toFixed(2);
+            document.getElementById('sleepEffVal').textContent = eff;
+        }
+
+        function loadProfile(key) {
+            const data = PROFILES[key];
+            if (!data) return;
+
+            document.querySelectorAll('.preset-chip').forEach(c => c.classList.remove('active'));
+            if (event && event.target && event.target.classList.contains('preset-chip')) {
+                event.target.classList.add('active');
+            }
+
+            document.getElementById('inputAge').value = data.Age;
+            updateVal('Age', data.Age);
+
+            document.getElementById('inputGender').value = data.Gender;
+
+            document.getElementById('inputSleepDuration').value = data.SleepDuration;
+            updateVal('SleepDuration', data.SleepDuration + ' hrs');
+
+            document.getElementById('inputQualityOfSleep').value = data.QualityOfSleep;
+            updateVal('QualityOfSleep', data.QualityOfSleep + ' / 10');
+
+            document.getElementById('inputActivity').value = data.Activity;
+            updateVal('Activity', data.Activity + ' min');
+
+            document.getElementById('inputStress').value = data.Stress;
+            updateVal('Stress', data.Stress + ' / 10');
+
+            document.getElementById('inputHeartRate').value = data.HeartRate;
+            updateVal('HeartRate', data.HeartRate + ' bpm');
+
+            document.getElementById('inputSteps').value = data.Steps;
+            updateVal('Steps', Number(data.Steps).toLocaleString());
+
+            document.getElementById('inputSystolic').value = data.Systolic;
+            updateVal('Systolic', data.Systolic);
+
+            document.getElementById('inputDiastolic').value = data.Diastolic;
+            updateVal('Diastolic', data.Diastolic);
+
+            document.getElementById('inputBMI').value = data.BMI;
+
+            updatePulsePressureCalc();
+
+            document.getElementById('telemetryText').textContent = 'Source: ' + data.source;
+            showToast('Loaded profile: ' + data.source);
+
+            runDiagnosis();
+        }
+
+        function simulateWearableSync() {
+            const btn = document.getElementById('btnSync');
+            btn.innerHTML = '<span>⏳</span> Syncing...';
+            btn.style.opacity = '0.7';
+
+            setTimeout(() => {
+                loadProfile('wearable_synced');
+                btn.innerHTML = '<span>⚡</span> Synced Just Now';
+                btn.style.opacity = '1';
+                setTimeout(() => {
+                    btn.innerHTML = '<span>⚡</span> Sync Apple / Google Health';
+                }, 2500);
+            }, 600);
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastMsg').textContent = msg;
+            toast.classList.add('visible');
+            setTimeout(() => {
+                toast.classList.remove('visible');
+            }, 3000);
+        }
+
+        async function runDiagnosis() {
+            const payload = {
+                Age: parseFloat(document.getElementById('inputAge').value),
+                Gender: document.getElementById('inputGender').value,
+                Sleep_Duration: parseFloat(document.getElementById('inputSleepDuration').value),
+                Quality_of_Sleep: parseFloat(document.getElementById('inputQualityOfSleep').value),
+                Physical_Activity_Level: parseFloat(document.getElementById('inputActivity').value),
+                Stress_Level: parseFloat(document.getElementById('inputStress').value),
+                BMI_Category: document.getElementById('inputBMI').value,
+                Heart_Rate: parseFloat(document.getElementById('inputHeartRate').value),
+                Daily_Steps: parseFloat(document.getElementById('inputSteps').value),
+                Systolic_BP: parseFloat(document.getElementById('inputSystolic').value),
+                Diastolic_BP: parseFloat(document.getElementById('inputDiastolic').value)
+            };
+
+            const btn = document.getElementById('btnPredict');
+            btn.innerHTML = '<span>⏳</span> Computing XGBoost & SHAP Inference...';
+            btn.disabled = true;
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) throw new Error('API server returned error ' + response.status);
+                const data = await response.json();
+                renderResults(data, false);
+            } catch (err) {
+                console.warn('FastAPI unavailable, rendering intelligent fallback mock response:', err);
+                const mock = generateMockInference(payload);
+                renderResults(mock, true);
+            } finally {
+                btn.innerHTML = '<span>⚡</span> Run Clinical Risk Stratification';
+                btn.disabled = false;
+            }
+        }
+
+        function generateMockInference(payload) {
+            // High-fidelity fallback for offline presentation
+            let pred = "Healthy / Normal";
+            let probs = { Healthy: 88.0, Insomnia: 8.0, Sleep_Apnea: 4.0 };
+            let shapFactors = [
+                { feature: "Sleep Duration", impact: -0.72 },
+                { feature: "Stress Level", impact: -0.55 },
+                { feature: "Daily Steps", impact: -0.42 }
+            ];
+
+            if (payload.Systolic_BP >= 140 && payload.BMI_Category !== "Normal") {
+                pred = "Sleep Apnea";
+                probs = { Healthy: 5.0, Insomnia: 12.0, Sleep_Apnea: 83.0 };
+                shapFactors = [
+                    { feature: "Systolic_BP", impact: 1.12 },
+                    { feature: "BMI Category_Overweight", impact: 0.88 },
+                    { feature: "Pulse_Pressure", impact: 0.65 }
+                ];
+            } else if (payload.Sleep_Duration < 6.0 || payload.Stress_Level >= 7) {
+                pred = "Insomnia";
+                probs = { Healthy: 3.0, Insomnia: 92.0, Sleep_Apnea: 5.0 };
+                shapFactors = [
+                    { feature: "Physical Activity Level", impact: 0.94 },
+                    { feature: "Sleep Duration", impact: 0.71 },
+                    { feature: "Stress Level", impact: 0.64 }
+                ];
+            }
+
+            return {
+                prediction: pred,
+                risk_probabilities: probs,
+                top_contributing_factors: shapFactors
+            };
+        }
+
+        function renderResults(data, isOfflineFallback) {
+            const apiTag = document.getElementById('apiStatusTag');
+            if (isOfflineFallback) {
+                apiTag.textContent = 'Demo Mode (Offline Fallback)';
+                apiTag.style.borderColor = 'rgba(255, 209, 102, 0.5)';
+                apiTag.style.color = 'var(--color-insomnia)';
+            } else {
+                apiTag.textContent = 'API Live (FastAPI + XGBoost)';
+                apiTag.style.borderColor = 'rgba(6, 214, 160, 0.5)';
+                apiTag.style.color = 'var(--color-healthy)';
+            }
+
+            // Verdict Styling
+            const banner = document.getElementById('verdictBanner');
+            const title = document.getElementById('verdictTitle');
+            const conf = document.getElementById('verdictConfidence');
+            
+            banner.className = 'verdict-banner';
+            const pred = data.prediction;
+            const probs = data.risk_probabilities;
+
+            if (pred.includes('Healthy')) {
+                banner.classList.add('healthy');
+                title.textContent = 'HEALTHY / OPTIMAL';
+                conf.textContent = (probs.Healthy || 90).toFixed(1) + '% Probability';
+            } else if (pred.includes('Insomnia')) {
+                banner.classList.add('insomnia');
+                title.textContent = 'INSOMNIA';
+                conf.textContent = (probs.Insomnia || 85).toFixed(1) + '% Probability';
+            } else {
+                banner.classList.add('apnea');
+                title.textContent = 'SLEEP APNEA RISK';
+                conf.textContent = (probs.Sleep_Apnea || 85).toFixed(1) + '% Probability';
+            }
+
+            // Probabilities
+            const pHealth = probs.Healthy || 0;
+            const pInso = probs.Insomnia || 0;
+            const pApnea = probs.Sleep_Apnea || 0;
+
+            document.getElementById('probHealthyVal').textContent = pHealth.toFixed(1) + '%';
+            document.getElementById('probHealthyBar').style.width = pHealth + '%';
+
+            document.getElementById('probInsomniaVal').textContent = pInso.toFixed(1) + '%';
+            document.getElementById('probInsomniaBar').style.width = pInso + '%';
+
+            document.getElementById('probApneaVal').textContent = pApnea.toFixed(1) + '%';
+            document.getElementById('probApneaBar').style.width = pApnea + '%';
+
+            // Render SHAP Attributions Chart
+            renderShapChart(data.top_contributing_factors || []);
+        }
+
+        function renderShapChart(factors) {
+            const ctx = document.getElementById('shapChart').getContext('2d');
+            
+            const labels = factors.map(f => f.feature.replace(/_/g, ' '));
+            const values = factors.map(f => f.impact);
+            const bgColors = values.map(v => v >= 0 ? 'rgba(239, 71, 111, 0.85)' : 'rgba(6, 214, 160, 0.85)');
+            const borderColors = values.map(v => v >= 0 ? '#EF476F' : '#06D6A0');
+
+            if (shapChartInstance) {
+                shapChartInstance.destroy();
+            }
+
+            shapChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'SHAP Impact Value',
+                        data: values,
+                        backgroundColor: bgColors,
+                        borderColor: borderColors,
+                        borderWidth: 1.5,
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const val = context.raw;
+                                    const dir = val > 0 ? "Increases predicted risk (+)" : "Decreases predicted risk (-)";
+                                    return ` ${val} (${dir})`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: 'rgba(255, 255, 255, 0.08)' },
+                            ticks: { color: '#94A3B8', font: { size: 11 } }
+                        },
+                        y: {
+                            grid: { display: false },
+                            ticks: { color: '#FFFFFF', font: { size: 12, weight: '600' } }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Initialize on load
+        window.addEventListener('DOMContentLoaded', () => {
+            updatePulsePressureCalc();
+            runDiagnosis();
+        });
+    </script>
+</body>
+</html>
