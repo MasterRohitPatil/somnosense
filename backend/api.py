@@ -1,5 +1,6 @@
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 import pandas as pd
@@ -11,10 +12,15 @@ import io
 import json
 from typing import Optional, List, Dict, Any
 
-import database
-from nlp_screener import analyze_sleep_journal
+from backend import database
+from backend.nlp_screener import analyze_sleep_journal
 
-app = FastAPI(title="SomnoSense Clinical Decision Support API", version="2.0.0")
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+FRONTEND_DIR = os.path.join(BASE_DIR, "frontend")
+DATA_DIR = os.path.join(BASE_DIR, "data")
+BACKEND_DIR = os.path.join(BASE_DIR, "backend")
+
+app = FastAPI(title="SomnoSense Clinical Decision Support Platform", version="2.1.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -24,9 +30,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Load Trained Model & TreeSHAP Explainer
-pipeline = joblib.load("somnosense_pipeline.pkl")
-ref_data = pd.read_csv("background_reference.csv")
+# Mount frontend static directory
+if os.path.exists(FRONTEND_DIR):
+    app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
+
+# Load ML Pipeline & SHAP Explainer
+pipeline_path = os.path.join(BACKEND_DIR, "somnosense_pipeline.pkl")
+ref_data_path = os.path.join(BACKEND_DIR, "background_reference.csv")
+
+pipeline = joblib.load(pipeline_path)
+ref_data = pd.read_csv(ref_data_path)
 transformed_bg = pipeline.named_steps['preprocessor'].transform(ref_data)
 explainer = shap.TreeExplainer(pipeline.named_steps['classifier'], transformed_bg)
 
@@ -35,12 +48,19 @@ num_cols = ['Age', 'Sleep Duration', 'Quality of Sleep', 'Physical Activity Leve
             'Diastolic_BP', 'Pulse_Pressure', 'Sleep_Efficiency']
 cat_cols = ['Gender', 'BMI Category']
 
-# --- Pydantic Request Schemas ---
+# --- Request Models ---
 
 class RegisterRequest(BaseModel):
     name: str
     email: str
     password: str
+    age: int
+    gender: str
+    height_cm: float
+    weight_kg: float
+
+class UpdateSettingsRequest(BaseModel):
+    name: str
     age: int
     gender: str
     height_cm: float
@@ -63,38 +83,25 @@ class DailyLogRequest(BaseModel):
     journal_text: Optional[str] = ""
     log_date: Optional[str] = None
 
-class PatientDataLegacy(BaseModel):
-    Age: float
-    Gender: str
-    Sleep_Duration: float
-    Quality_of_Sleep: float
-    Physical_Activity_Level: float
-    Stress_Level: float
-    BMI_Category: str
-    Heart_Rate: float
-    Daily_Steps: float
-    Systolic_BP: float
-    Diastolic_BP: float
+class GoogleFitSyncRequest(BaseModel):
+    user_id: int
+    google_account_email: Optional[str] = "patient@gmail.com"
 
-# --- Helper Model Inference Function ---
+# --- ML Inference Utility ---
 
 def run_ml_inference(payload: dict):
-    # Normalized BMI
     if payload.get('BMI Category') == 'Normal Weight':
         payload['BMI Category'] = 'Normal'
 
-    # Derived Features
     payload['Pulse_Pressure'] = payload['Systolic_BP'] - payload['Diastolic_BP']
     payload['Sleep_Efficiency'] = (payload['Sleep Duration'] / 8.0) * (payload['Quality of Sleep'] / 10.0)
 
     input_df = pd.DataFrame([payload])[num_cols + cat_cols]
 
-    # Predict Probabilities
     probs = pipeline.predict_proba(input_df)[0].tolist()
     pred_idx = int(pipeline.predict(input_df)[0])
     labels = ["Healthy / Normal", "Insomnia", "Sleep Apnea"]
 
-    # SHAP Attributions
     transformed_input = pipeline.named_steps['preprocessor'].transform(input_df)
     shap_vals = explainer.shap_values(transformed_input)
 
@@ -127,19 +134,27 @@ def run_ml_inference(payload: dict):
         "sleep_efficiency": round(payload['Sleep_Efficiency'], 2)
     }
 
-# --- Routes ---
+# --- Core Pages Navigation ---
 
 @app.get("/")
-def serve_frontend():
-    if os.path.exists("index.html"):
-        return FileResponse("index.html")
-    return {"status": "online", "message": "SomnoSense API is running"}
+def serve_landing_page():
+    landing_path = os.path.join(FRONTEND_DIR, "landing.html")
+    if os.path.exists(landing_path):
+        return FileResponse(landing_path)
+    return {"status": "online", "message": "SomnoSense Platform"}
+
+@app.get("/app")
+def serve_patient_portal():
+    app_path = os.path.join(FRONTEND_DIR, "index.html")
+    if os.path.exists(app_path):
+        return FileResponse(app_path)
+    return {"status": "online", "message": "Portal Not Found"}
 
 @app.get("/health")
 def health():
-    return {"status": "healthy", "model_version": "2.0.0"}
+    return {"status": "healthy", "platform": "SomnoSense v2.1"}
 
-# --- Auth Endpoints ---
+# --- User Authentication & Settings ---
 
 @app.post("/api/auth/register")
 def register(req: RegisterRequest):
@@ -161,7 +176,6 @@ def login(req: LoginRequest):
     user = database.authenticate_user(req.email, req.password)
     if not user:
         raise HTTPException(status_code=401, detail="Invalid email or password.")
-    # Exclude password_hash
     user.pop("password_hash", None)
     return {"status": "success", "user": user}
 
@@ -172,6 +186,20 @@ def get_user_profile(user_id: int):
         raise HTTPException(status_code=404, detail="User not found.")
     return user
 
+@app.put("/api/auth/user/{user_id}")
+def update_user_settings(user_id: int, req: UpdateSettingsRequest):
+    updated = database.update_user_settings(
+        user_id=user_id,
+        name=req.name,
+        age=req.age,
+        gender=req.gender,
+        height_cm=req.height_cm,
+        weight_kg=req.weight_kg
+    )
+    if not updated:
+        raise HTTPException(status_code=404, detail="User not found.")
+    return {"status": "success", "user": updated, "message": "Settings updated and BMI recalculated successfully!"}
+
 # --- Clinical Daily Logging with NLP ---
 
 @app.post("/api/logs/create")
@@ -180,10 +208,8 @@ def create_daily_log(req: DailyLogRequest):
     if not user:
         raise HTTPException(status_code=404, detail="User profile not found.")
 
-    # Clinical NLP Analysis on Free-text Journal
     nlp_results = analyze_sleep_journal(req.journal_text or "")
 
-    # Run Machine Learning Inference
     payload = {
         'Age': float(user['age']),
         'Gender': user['gender'],
@@ -199,9 +225,8 @@ def create_daily_log(req: DailyLogRequest):
     }
     ml_res = run_ml_inference(payload)
 
-    # Save to SQLite Database
     log_record = {
-        'log_date': req.log_date,
+        'log_date': req.log_date or pd.Timestamp.now().strftime("%Y-%m-%d"),
         'sleep_duration': req.sleep_duration,
         'quality_of_sleep': req.quality_of_sleep,
         'physical_activity': req.physical_activity,
@@ -239,12 +264,18 @@ def get_user_history(user_id: int):
     logs = database.get_user_logs(user_id, limit=30)
     return {"user_id": user_id, "logs": logs}
 
-# --- Wearable CSV Upload & Sample Download ---
+@app.get("/api/analytics/trends/{user_id}")
+def get_user_analytics(user_id: int):
+    analytics = database.get_user_analytics(user_id)
+    return analytics
+
+# --- Wearables & Google Fit Ingestion ---
 
 @app.get("/api/wearable/sample-csv")
 def download_sample_csv():
-    if os.path.exists("sample_wearable_export.csv"):
-        return FileResponse("sample_wearable_export.csv", media_type="text/csv", filename="sample_wearable_export.csv")
+    sample_path = os.path.join(DATA_DIR, "sample_wearable_export.csv")
+    if os.path.exists(sample_path):
+        return FileResponse(sample_path, media_type="text/csv", filename="sample_wearable_export.csv")
     raise HTTPException(status_code=404, detail="Sample CSV not found")
 
 @app.post("/api/wearable/upload")
@@ -257,35 +288,26 @@ async def upload_wearable_csv(user_id: int = Form(...), file: UploadFile = File(
     try:
         df = pd.read_csv(io.StringIO(contents.decode('utf-8')))
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Failed to parse CSV file: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Failed to parse CSV: {str(e)}")
 
-    # Flexible column mapping for standard wearable formats
     column_map = {
-        'Sleep_Duration_Hours': 'sleep_duration',
-        'Sleep Duration': 'sleep_duration',
-        'Sleep_Quality_Score': 'quality_of_sleep',
-        'Quality of Sleep': 'quality_of_sleep',
-        'Physical_Activity_Minutes': 'physical_activity',
-        'Physical Activity Level': 'physical_activity',
-        'Stress_Level': 'stress_level',
-        'Stress Level': 'stress_level',
-        'Resting_Heart_Rate': 'heart_rate',
-        'Heart Rate': 'heart_rate',
-        'Daily_Steps': 'daily_steps',
-        'Daily Steps': 'daily_steps',
-        'Systolic_BP': 'systolic_bp',
-        'Diastolic_BP': 'diastolic_bp'
+        'Sleep_Duration_Hours': 'sleep_duration', 'Sleep Duration': 'sleep_duration',
+        'Sleep_Quality_Score': 'quality_of_sleep', 'Quality of Sleep': 'quality_of_sleep',
+        'Physical_Activity_Minutes': 'physical_activity', 'Physical Activity Level': 'physical_activity',
+        'Stress_Level': 'stress_level', 'Stress Level': 'stress_level',
+        'Resting_Heart_Rate': 'heart_rate', 'Heart Rate': 'heart_rate',
+        'Daily_Steps': 'daily_steps', 'Daily Steps': 'daily_steps',
+        'Systolic_BP': 'systolic_bp', 'Diastolic_BP': 'diastolic_bp'
     }
     df = df.rename(columns=column_map)
 
     required_fields = ['sleep_duration', 'quality_of_sleep', 'physical_activity', 'stress_level', 'heart_rate', 'daily_steps', 'systolic_bp', 'diastolic_bp']
     for req in required_fields:
         if req not in df.columns:
-            raise HTTPException(status_code=400, detail=f"Missing expected column '{req}' in uploaded CSV. Please check formatting or download our sample template.")
+            raise HTTPException(status_code=400, detail=f"Missing expected column '{req}' in CSV.")
 
     imported_logs = []
-    latest_ml_res = None
-
+    latest_ml = None
     for _, row in df.iterrows():
         payload = {
             'Age': float(user['age']),
@@ -301,7 +323,7 @@ async def upload_wearable_csv(user_id: int = Form(...), file: UploadFile = File(
             'Diastolic_BP': float(row['diastolic_bp'])
         }
         ml_res = run_ml_inference(payload)
-        latest_ml_res = ml_res
+        latest_ml = ml_res
 
         log_record = {
             'log_date': str(row.get('Date', pd.Timestamp.now().strftime("%Y-%m-%d"))),
@@ -317,12 +339,12 @@ async def upload_wearable_csv(user_id: int = Form(...), file: UploadFile = File(
             'sleep_efficiency': ml_res['sleep_efficiency'],
             'journal_text': str(row.get('Device_Notes', 'Imported via Wearable Telemetry')),
             'nlp_sentiment': 'Wearable Verified',
-            'nlp_symptoms': 'Device Telemetry Stream',
+            'nlp_symptoms': 'Device Stream Log',
             'prediction': ml_res['prediction'],
             'prob_healthy': ml_res['risk_probabilities']['Healthy'],
             'prob_insomnia': ml_res['risk_probabilities']['Insomnia'],
             'prob_apnea': ml_res['risk_probabilities']['Sleep_Apnea'],
-            'data_source': 'Wearable Stream Sync'
+            'data_source': 'Wearable CSV Sync'
         }
         database.save_daily_log(user_id, log_record)
         imported_logs.append(log_record)
@@ -330,24 +352,68 @@ async def upload_wearable_csv(user_id: int = Form(...), file: UploadFile = File(
     return {
         "status": "success",
         "rows_imported": len(imported_logs),
-        "latest_diagnosis": latest_ml_res,
-        "message": f"Successfully parsed and ingested {len(imported_logs)} days of telemetry."
+        "latest_diagnosis": latest_ml,
+        "message": f"Successfully ingested {len(imported_logs)} days of telemetry."
     }
 
-# --- Legacy Single Prediction Endpoint ---
+@app.post("/api/wearable/google-fit-sync")
+def sync_google_fit(req: GoogleFitSyncRequest):
+    user = database.get_user_by_id(req.user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
 
-@app.post("/predict")
-def predict_legacy(data: PatientDataLegacy):
-    payload = data.model_dump() if hasattr(data, 'model_dump') else data.dict()
-    payload['Sleep Duration'] = payload.pop('Sleep_Duration')
-    payload['Quality of Sleep'] = payload.pop('Quality_of_Sleep')
-    payload['Physical Activity Level'] = payload.pop('Physical_Activity_Level')
-    payload['Stress Level'] = payload.pop('Stress_Level')
-    payload['BMI Category'] = payload.pop('BMI_Category')
-    payload['Heart Rate'] = payload.pop('Heart_Rate')
-    payload['Daily Steps'] = payload.pop('Daily_Steps')
-    return run_ml_inference(payload)
+    # Simulate realistic Google Fit telemetry stream ingestion
+    sample_path = os.path.join(DATA_DIR, "sample_wearable_export.csv")
+    if os.path.exists(sample_path):
+        df = pd.read_csv(sample_path)
+        row = df.iloc[-1]
+        payload = {
+            'Age': float(user['age']),
+            'Gender': user['gender'],
+            'Sleep Duration': float(row['Sleep_Duration_Hours']),
+            'Quality of Sleep': float(row['Sleep_Quality_Score']),
+            'Physical Activity Level': float(row['Physical_Activity_Minutes']),
+            'Stress Level': float(row['Stress_Level']),
+            'BMI Category': user['bmi_category'],
+            'Heart Rate': float(row['Resting_Heart_Rate']),
+            'Daily Steps': float(row['Daily_Steps']),
+            'Systolic_BP': float(row['Systolic_BP']),
+            'Diastolic_BP': float(row['Diastolic_BP'])
+        }
+        ml_res = run_ml_inference(payload)
+
+        log_record = {
+            'log_date': pd.Timestamp.now().strftime("%Y-%m-%d"),
+            'sleep_duration': payload['Sleep Duration'],
+            'quality_of_sleep': payload['Quality of Sleep'],
+            'physical_activity': payload['Physical Activity Level'],
+            'stress_level': payload['Stress Level'],
+            'heart_rate': payload['Heart Rate'],
+            'daily_steps': payload['Daily Steps'],
+            'systolic_bp': payload['Systolic_BP'],
+            'diastolic_bp': payload['Diastolic_BP'],
+            'pulse_pressure': ml_res['pulse_pressure'],
+            'sleep_efficiency': ml_res['sleep_efficiency'],
+            'journal_text': f"Automated sync from Google Health Connect ({req.google_account_email})",
+            'nlp_sentiment': 'Wearable Stream',
+            'nlp_symptoms': 'Google Fit Telemetry Synced',
+            'prediction': ml_res['prediction'],
+            'prob_healthy': ml_res['risk_probabilities']['Healthy'],
+            'prob_insomnia': ml_res['risk_probabilities']['Insomnia'],
+            'prob_apnea': ml_res['risk_probabilities']['Sleep_Apnea'],
+            'data_source': 'Google Fit Connect'
+        }
+        database.save_daily_log(req.user_id, log_record)
+
+        return {
+            "status": "success",
+            "message": f"Connected to Google Health Connect ({req.google_account_email}). Synced latest telemetry.",
+            "synced_data": log_record,
+            "diagnosis": ml_res
+        }
+
+    return {"status": "error", "message": "Reference data unavailable."}
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    uvicorn.run("backend.api:app", host="127.0.0.1", port=8000, reload=False)

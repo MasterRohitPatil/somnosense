@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SomnoSense: Clinical Sleep & Cardiovascular Decision Support Platform</title>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <style>
+        .landing-nav {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 20px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .landing-hero {
+            max-width: 1100px;
+            margin: 60px auto 40px auto;
+            padding: 0 24px;
+            text-align: center;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(56, 189, 248, 0.1);
+            border: 1px solid rgba(56, 189, 248, 0.25);
+            color: var(--brand-primary);
+            font-size: 0.82rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            padding: 6px 16px;
+            border-radius: 30px;
+            margin-bottom: 24px;
+        }
+
+        .hero-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 3.4rem;
+            font-weight: 800;
+            color: var(--text-heading);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 20px;
+        }
+
+        .hero-title span.highlight {
+            background: linear-gradient(135deg, #38BDF8 0%, #818CF8 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero-desc {
+            font-size: 1.15rem;
+            color: var(--text-body);
+            max-width: 760px;
+            margin: 0 auto 36px auto;
+            line-height: 1.6;
+        }
+
+        .hero-cta-group {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .btn-hero {
+            padding: 14px 28px;
+            font-size: 1.05rem;
+            border-radius: var(--radius-sm);
+        }
+
+        /* Feature Cards Section */
+        .features-section {
+            max-width: 1240px;
+            margin: 70px auto;
+            padding: 0 24px;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 48px;
+        }
+
+        .section-header h2 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 2.2rem;
+            font-weight: 700;
+            color: var(--text-heading);
+        }
+
+        .feature-grid-3 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+        }
+
+        @media (max-width: 900px) {
+            .feature-grid-3 { grid-template-columns: 1fr; }
+            .hero-title { font-size: 2.5rem; }
+        }
+
+        .feature-card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-md);
+            padding: 28px;
+            transition: var(--transition);
+        }
+
+        .feature-card:hover {
+            border-color: var(--brand-primary);
+            transform: translateY(-4px);
+        }
+
+        .feature-icon {
+            width: 48px; height: 48px;
+            border-radius: var(--radius-sm);
+            background: rgba(56, 189, 248, 0.12);
+            color: var(--brand-primary);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 24px;
+            margin-bottom: 18px;
+        }
+
+        .feature-card h3 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text-heading);
+            margin-bottom: 10px;
+        }
+
+        .feature-card p {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            line-height: 1.6;
+        }
+
+        /* Comparison Table */
+        .table-section {
+            max-width: 1100px;
+            margin: 80px auto;
+            padding: 0 24px;
+        }
+
+        .comp-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--bg-surface);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+        }
+
+        .comp-table th, .comp-table td {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-subtle);
+            font-size: 0.9rem;
+        }
+
+        .comp-table th {
+            background: var(--bg-surface-elevated);
+            color: var(--text-heading);
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+        }
+
+        .badge-check {
+            color: var(--status-healthy);
+            font-weight: 700;
+        }
+
+        .badge-cross {
+            color: var(--text-muted);
+        }
+
+        footer {
+            border-top: 1px solid var(--border-subtle);
+            padding: 30px 24px;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            margin-top: 60px;
+        }
+    </style>
+</head>
+<body style="display: block;">
+
+    <!-- Landing Navigation -->
+    <header style="background: rgba(18, 26, 45, 0.85); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border-subtle); position: sticky; top: 0; z-index: 100;">
+        <div class="landing-nav">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <div class="sidebar-logo">🌙</div>
+                <div class="sidebar-brand">
+                    <h1>SomnoSense</h1>
+                    <span>Clinical Sleep & Cardio Platform</span>
+                </div>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <a href="/app" class="btn-secondary">Sign In</a>
+                <a href="/app" class="btn-primary">Launch Patient Portal</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="landing-hero">
+        <div class="hero-badge">
+            <span>●</span> Data Science Honours · Clinical AI & Health Telemetry
+        </div>
+        <h1 class="hero-title">
+            Stratify Sleep Disorders & Cardiovascular Risk with <span class="highlight">Explainable AI</span>
+        </h1>
+        <p class="hero-desc">
+            Bridging wearable biometric telemetry, clinical polysomnography indicators, and arterial compliance biomarkers to predict Insomnia and Sleep Apnea with complete model transparency.
+        </p>
+        <div class="hero-cta-group">
+            <a href="/app" class="btn-primary btn-hero">
+                <span>🚀</span> Launch Patient Portal
+            </a>
+            <a href="#competitors" class="btn-secondary btn-hero">
+                <span>📊</span> View Competitor Comparison
+            </a>
+        </div>
+    </section>
+
+    <!-- Key Pillars Section -->
+    <section class="features-section">
+        <div class="section-header">
+            <h2>Clinical Decision Support Features</h2>
+            <p style="color: var(--text-muted); margin-top: 6px;">Engineered specifically for medical precision, patient tracking, and algorithmic interpretability.</p>
+        </div>
+
+        <div class="feature-grid-3">
+            <div class="feature-card">
+                <div class="feature-icon">🩺</div>
+                <h3>Multiclass Stratification</h3>
+                <p>Trained on clinical cohort data using an optimized XGBoost classifier to stratify individuals into <strong>Healthy / Normal</strong>, <strong>Insomnia</strong>, and <strong>Sleep Apnea</strong> with 93% accuracy.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🔬</div>
+                <h3>TreeSHAP Explainability</h3>
+                <p>No black-box predictions. Every assessment breaks down the top 3 biometric driving factors using game-theoretic Shapley attributions in full compliance with clinical AI guidelines.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">❤️</div>
+                <h3>Cardiovascular Biomarkers</h3>
+                <p>Engineered clinical Pulse Pressure ($PP = SBP - DBP$) flag. Highlights arterial stiffness and isolated systolic hypertension risk whenever $PP > 50\text{ mmHg}$.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🧠</div>
+                <h3>Clinical NLP Journal Screener</h3>
+                <p>Patients log daily free-text sleep notes. Our rule-based NLP screener parses nocturnal choking, racing thoughts, and morning headaches into structured clinical alerts.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">⌚</div>
+                <h3>Wearable & Google Fit Sync</h3>
+                <p>Seamlessly ingest multi-day time-series telemetry from Apple Health, Google Fit, or Fitbit CSV exports, with instant simulated Google Health Connect streaming.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">📈</div>
+                <h3>Longitudinal Patient Analytics</h3>
+                <p>Tracks week-over-week trends, 7-day rolling averages, and historical risk progression under individual patient profile records in local zero-setup storage.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Competitor Comparison Table -->
+    <section class="table-section" id="competitors">
+        <div class="section-header">
+            <h2>Market Landscape: How SomnoSense Compares</h2>
+            <p style="color: var(--text-muted); margin-top: 6px;">Commercial consumer wearables vs. our clinical decision support approach.</p>
+        </div>
+
+        <table class="comp-table">
+            <thead>
+                <tr>
+                    <th>Capability</th>
+                    <th>Oura Ring / Whoop</th>
+                    <th>Apple / Google Health</th>
+                    <th style="color: var(--brand-primary); background: rgba(56, 189, 248, 0.1);">SomnoSense (Our System)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Diagnostic Triage</strong></td>
+                    <td><span class="badge-cross">❌ Generic 0-100 Score</span></td>
+                    <td><span class="badge-cross">❌ Raw Data Log</span></td>
+                    <td><span class="badge-check">✅ Clinical 3-Class Stratification</span></td>
+                </tr>
+                <tr>
+                    <td><strong>Cardiovascular Arterial Risk</strong></td>
+                    <td><span class="badge-cross">❌ Resting HR only</span></td>
+                    <td><span class="badge-cross">❌ Blood Pressure record only</span></td>
+                    <td><span class="badge-check">✅ Pulse Pressure (>50 mmHg) Arterial Stiffness Alert</span></td>
+                </tr>
+                <tr>
+                    <td><strong>Explainable AI (Why?)</strong></td>
+                    <td><span class="badge-cross">❌ Proprietary Black Box</span></td>
+                    <td><span class="badge-cross">❌ No Model</span></td>
+                    <td><span class="badge-check">✅ Local TreeSHAP Feature Attributions</span></td>
+                </tr>
+                <tr>
+                    <td><strong>Free-Text Symptom NLP</strong></td>
+                    <td><span class="badge-cross">❌ Static Checkboxes</span></td>
+                    <td><span class="badge-cross">❌ None</span></td>
+                    <td><span class="badge-check">✅ Rule-Based Clinical NLP Journal Screener</span></td>
+                </tr>
+                <tr>
+                    <td><strong>Patient Profile & BMI Engine</strong></td>
+                    <td><span class="badge-check">✅ Available</span></td>
+                    <td><span class="badge-check">✅ Available</span></td>
+                    <td><span class="badge-check">✅ Auto-Recalculated WHO Clinical BMI</span></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div style="text-align: center; margin-top: 36px;">
+            <a href="/app" class="btn-primary btn-hero">
+                <span>⚡</span> Enter Patient Portal Now
+            </a>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <p><strong>SomnoSense</strong> · Academic Research & Clinical Decision Support System · Data Science Honours</p>
+        <p style="margin-top: 4px; font-size: 0.78rem;">Designed for educational, research, and non-prescriptive screening demonstration.</p>
+    </footer>
+
+</body>
+</html>

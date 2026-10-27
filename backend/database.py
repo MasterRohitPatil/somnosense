@@ -1,9 +1,10 @@
 import sqlite3
 import hashlib
+import os
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 
-DB_PATH = "somnosense.db"
+DB_PATH = os.path.join(os.path.dirname(__file__), "somnosense.db")
 
 def get_db_connection():
     conn = sqlite3.connect(DB_PATH)
@@ -12,6 +13,20 @@ def get_db_connection():
 
 def hash_password(password: str) -> str:
     return hashlib.sha256(password.encode()).hexdigest()
+
+def calculate_bmi(weight_kg: float, height_cm: float) -> tuple[float, str]:
+    """Calculate clinical BMI and categorization according to WHO standards."""
+    height_m = height_cm / 100.0
+    if height_m <= 0:
+        return 22.0, "Normal"
+    bmi = round(weight_kg / (height_m * height_m), 1)
+    if bmi < 25.0:
+        category = "Normal"
+    elif bmi < 30.0:
+        category = "Overweight"
+    else:
+        category = "Obese"
+    return bmi, category
 
 def init_db():
     conn = get_db_connection()
@@ -64,7 +79,7 @@ def init_db():
     """)
 
     conn.commit()
-    
+
     # Seed default demonstration user if table is empty
     cursor.execute("SELECT COUNT(*) FROM users")
     if cursor.fetchone()[0] == 0:
@@ -76,20 +91,6 @@ def init_db():
         conn.commit()
 
     conn.close()
-
-def calculate_bmi(weight_kg: float, height_cm: float) -> tuple[float, str]:
-    """Calculate clinical BMI and categorization according to WHO standards."""
-    height_m = height_cm / 100.0
-    if height_m <= 0:
-        return 22.0, "Normal"
-    bmi = round(weight_kg / (height_m * height_m), 1)
-    if bmi < 25.0:
-        category = "Normal"
-    elif bmi < 30.0:
-        category = "Overweight"
-    else:
-        category = "Obese"
-    return bmi, category
 
 def register_user(name: str, email: str, password: str, age: int, gender: str, height_cm: float, weight_kg: float) -> Optional[Dict[str, Any]]:
     conn = get_db_connection()
@@ -108,6 +109,19 @@ def register_user(name: str, email: str, password: str, age: int, gender: str, h
         return None
     finally:
         conn.close()
+
+def update_user_settings(user_id: int, name: str, age: int, gender: str, height_cm: float, weight_kg: float) -> Optional[Dict[str, Any]]:
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    bmi, bmi_category = calculate_bmi(weight_kg, height_cm)
+    cursor.execute("""
+        UPDATE users 
+        SET name = ?, age = ?, gender = ?, height_cm = ?, weight_kg = ?, bmi = ?, bmi_category = ?
+        WHERE id = ?
+    """, (name, age, gender, height_cm, weight_kg, bmi, bmi_category, user_id))
+    conn.commit()
+    conn.close()
+    return get_user_by_id(user_id)
 
 def authenticate_user(email: str, password: str) -> Optional[Dict[str, Any]]:
     conn = get_db_connection()
@@ -168,7 +182,7 @@ def save_daily_log(user_id: int, log_data: Dict[str, Any]) -> int:
     conn.close()
     return log_id
 
-def get_user_logs(user_id: int, limit: int = 14) -> List[Dict[str, Any]]:
+def get_user_logs(user_id: int, limit: int = 30) -> List[Dict[str, Any]]:
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("""
@@ -181,5 +195,49 @@ def get_user_logs(user_id: int, limit: int = 14) -> List[Dict[str, Any]]:
     conn.close()
     return [dict(r) for r in rows]
 
-# Initialize on import
+def get_user_analytics(user_id: int) -> Dict[str, Any]:
+    """Computes weekly and monthly trends and averages for dashboard charts."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT log_date, sleep_duration, quality_of_sleep, heart_rate, systolic_bp, diastolic_bp, pulse_pressure, prediction
+        FROM daily_logs 
+        WHERE user_id = ? 
+        ORDER BY log_date ASC
+        LIMIT 30
+    """, (user_id,))
+    rows = [dict(r) for r in cursor.fetchall()]
+    conn.close()
+
+    if not rows:
+        # Default baseline if empty
+        return {
+            "has_data": False,
+            "avg_sleep_7d": 0,
+            "avg_heart_rate": 0,
+            "avg_pulse_pressure": 0,
+            "dates": [],
+            "sleep_durations": [],
+            "pulse_pressures": [],
+            "heart_rates": []
+        }
+
+    recent_7 = rows[-7:] if len(rows) >= 7 else rows
+    avg_sleep = round(sum(r['sleep_duration'] for r in recent_7) / len(recent_7), 1)
+    avg_hr = round(sum(r['heart_rate'] for r in recent_7) / len(recent_7), 0)
+    avg_pp = round(sum(r['pulse_pressure'] for r in recent_7) / len(recent_7), 0)
+
+    return {
+        "has_data": True,
+        "total_records": len(rows),
+        "avg_sleep_7d": avg_sleep,
+        "avg_heart_rate": int(avg_hr),
+        "avg_pulse_pressure": int(avg_pp),
+        "dates": [r['log_date'] for r in rows],
+        "sleep_durations": [r['sleep_duration'] for r in rows],
+        "pulse_pressures": [r['pulse_pressure'] for r in rows],
+        "heart_rates": [r['heart_rate'] for r in rows],
+        "predictions": [r['prediction'] for r in rows]
+    }
+
 init_db()

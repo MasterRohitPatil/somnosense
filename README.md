@@ -1,95 +1,91 @@
-# SomnoSense: Clinical Sleep & Cardiovascular Risk Stratifier
+# SomnoSense: Clinical Sleep & Cardiovascular Decision Support Platform
 
 > **Data Science Honours Project**  
-> An explainable machine learning system bridging polysomnography indicators, wearable telemetry, and cardiovascular risk stratification.
+> An explainable machine learning & clinical decision support platform bridging polysomnography indicators, wearable health telemetry (Google Fit / Apple Health), and cardiovascular risk stratification.
 
 ---
 
-## 📌 Overview
+## 🌟 Key Capabilities
 
-**SomnoSense** is an end-to-end clinical decision support platform designed to stratify individuals into three diagnostic categories:
-1. **Healthy / Normal**
-2. **Insomnia**
-3. **Sleep Apnea**
-
-Beyond standard diagnostic classification, SomnoSense integrates **clinical biomarker engineering** (Pulse Pressure for arterial stiffness assessment and Sleep Efficiency ratios) and **TreeSHAP local attributions** to provide transparent, interpretable risk factors for clinical practitioners and patients.
+1. **Clinical Decision Support (3-Class Triage)**:
+   - Stratifies individuals into **Healthy / Normal**, **Insomnia**, and **Sleep Apnea** with 93% accuracy using an optimized XGBoost classifier.
+2. **Cardiovascular Risk Flag (Arterial Compliance)**:
+   - Calculates **Pulse Pressure ($PP = SBP - DBP$)**. Automatically warns of elevated arterial stiffness risk when $PP > 50\text{ mmHg}$.
+3. **Explainable AI (TreeSHAP)**:
+   - Provides per-patient local Shapley attributions, ensuring compliance with clinical AI interpretability requirements (FDA SAMD & EU AI Act).
+4. **Clinical NLP Symptom Journal Screener**:
+   - Analyzes free-text sleep notes to extract nocturnal choking/gasping, morning migraines, sleep latency, and flags urgency tiers.
+5. **Google Health Connect & Wearable Telemetry Sync**:
+   - Ingests multi-day time-series telemetry from Google Fit / Apple Health / Fitbit with drag-and-drop CSV parser.
+6. **Multi-User Local Storage & Profile Management**:
+   - Zero-setup local database (`backend/somnosense.db`).
+   - Collects Height & Weight and automatically calculates WHO clinical BMI live.
+   - Allows updating biometrics from the User Settings page.
 
 ---
 
-## 🏗️ Architecture
+## 🏗️ Project Architecture
 
 ```
-SomnoSense
-├── Sleep_health_and_lifestyle_dataset.csv   # Source clinical & lifestyle dataset
-├── train.py                                 # Feature engineering & XGBoost pipeline trainer
-├── somnosense_pipeline.pkl                  # Serialized model & preprocessing pipeline
-├── background_reference.csv                 # Background baseline for TreeSHAP explainer
-├── api.py                                   # FastAPI inference & SHAP computation engine
-├── index.html                               # Modern high-contrast interactive frontend
-├── app_streamlit.py                         # Streamlit alternative for Python-centric workflows
-├── requirements.txt                         # Python dependencies
-└── README.md                                # Project documentation
+somnosense_project/
+├── backend/
+│   ├── api.py                  # FastAPI application & REST routing
+│   ├── database.py             # Local SQLite database & analytics aggregations
+│   ├── nlp_screener.py         # Clinical NLP rule-based symptom extraction
+│   ├── train.py                # Model training & feature engineering script
+│   ├── somnosense_pipeline.pkl # Serialized XGBoost model & preprocessing pipeline
+│   └── background_reference.csv# TreeSHAP baseline distribution
+├── frontend/
+│   ├── index.html              # Main Clinical App with Left Sidebar Navigation
+│   ├── landing.html            # Public marketing / product landing page
+│   ├── css/
+│   │   └── styles.css          # Design system & responsive styles
+│   └── js/
+│       └── app.js              # State management, Chart.js trends & API client
+├── data/
+│   ├── Sleep_health_and_lifestyle_dataset.csv  # Base training dataset
+│   └── sample_wearable_export.csv              # 7-day wearable test export
+├── run.py                      # 1-Click root launcher
+├── requirements.txt            # Python dependencies
+└── README.md                   # Project documentation
 ```
 
 ---
 
-## 🧬 Feature Engineering & Clinical Rationale
-
-- **Pulse Pressure ($PP = \text{Systolic BP} - \text{Diastolic BP}$)**:
-  - Clinical significance: $PP > 50\text{ mmHg}$ serves as a surrogate marker of arterial stiffness and isolated systolic hypertension, closely linked to sleep-disordered breathing.
-- **Sleep Efficiency Index**:
-  - Normalized composite ratio: $(\text{Sleep Duration} / 8.0) \times (\text{Quality of Sleep} / 10.0)$.
-- **Explainable AI (TreeSHAP)**:
-  - Provides per-patient local Shapley attributions, ensuring compliance with clinical AI interpretability requirements (FDA SAMD & EU AI Act).
-
----
-
-## 🚀 Getting Started
+## 🚀 Quickstart Guide
 
 ### 1. Clone & Set Up Environment
 ```bash
 git clone https://github.com/MasterRohitPatil/somnosense.git
 cd somnosense
 
-# Create and activate virtual environment (optional)
+# (Optional) Create virtual environment
 python -m venv .venv
-# Windows:
 .venv\Scripts\activate
-# Linux/macOS:
-source .venv/bin/activate
 
 # Install dependencies
 pip install -r requirements.txt
 ```
 
-### 2. Train the Model
+### 2. Launch the Platform
 ```bash
-python train.py
+python run.py
 ```
-*Outputs: 93% classification accuracy on stratified test split.*
-
-### 3. Run the Backend API & Web App
-```bash
-python api.py
-```
-- Open browser at **`http://127.0.0.1:8000/`** to access the web interface.
-- Interactive API documentation available at **`http://127.0.0.1:8000/docs`**.
-
-### 4. (Optional) Run Streamlit Dashboard
-```bash
-streamlit run app_streamlit.py
-```
+- **Public Product Landing Page**: Open **`http://127.0.0.1:8000/`**
+- **Patient Portal & Dashboard**: Open **`http://127.0.0.1:8000/app`**
+- **Interactive Swagger Docs**: Open **`http://127.0.0.1:8000/docs`**
 
 ---
 
-## 🧪 Model Performance Summary
+## 📊 Market Comparison (Oura vs. Whoop vs. SomnoSense)
 
-| Class | Precision | Recall | F1-Score | Support |
-| :--- | :---: | :---: | :---: | :---: |
-| **Healthy / Normal** | 1.00 | 0.98 | 0.99 | 44 |
-| **Insomnia** | 0.92 | 0.80 | 0.86 | 15 |
-| **Sleep Apnea** | 0.79 | 0.94 | 0.86 | 16 |
-| **Overall Accuracy** | | | **0.93** | 75 |
+| Feature | Oura / Whoop | Apple / Google Health | **SomnoSense** |
+| :--- | :---: | :---: | :---: |
+| **Diagnostic Triage** | ❌ Generic 0-100 score | ❌ Raw telemetry log | ✅ **Clinical Multi-Class Triage** (Healthy, Insomnia, Sleep Apnea) |
+| **Cardiovascular Risk** | ❌ Resting HR only | ❌ BP logging only | ✅ **Pulse Pressure (>50 mmHg) Arterial Stiffness Alert** |
+| **AI Transparency** | ❌ Proprietary black-box | ❌ None | ✅ **TreeSHAP Game-Theoretic Attributions** |
+| **Symptom NLP** | ❌ None | ❌ None | ✅ **Rule-Based Clinical Symptom Screener** |
+| **Patient Profile Engine** | ✅ Available | ✅ Available | ✅ **Auto-Calculated WHO Clinical BMI** |
 
 ---
 

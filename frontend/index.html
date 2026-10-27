@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SomnoSense: Clinical Decision Support Portal</title>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+    <div class="app-container">
+        <!-- ================= LEFT SIDEBAR ================= -->
+        <aside class="sidebar">
+            <div>
+                <!-- Brand Header -->
+                <a href="/" class="sidebar-header">
+                    <div class="sidebar-logo">🌙</div>
+                    <div class="sidebar-brand">
+                        <h1>SomnoSense</h1>
+                        <span>Clinical Decision Portal</span>
+                    </div>
+                </a>
+
+                <!-- Navigation Links -->
+                <ul class="sidebar-nav">
+                    <li class="nav-item">
+                        <button id="navBtn_dashboard" class="active" onclick="navigate('dashboard')">
+                            <span>📊</span> Dashboard & Analytics
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button id="navBtn_daily-log" onclick="navigate('daily-log')">
+                            <span>📝</span> Daily Manual Log
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button id="navBtn_wearable" onclick="navigate('wearable')">
+                            <span>⌚</span> Google Fit & Wearables
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button id="navBtn_history" onclick="navigate('history')">
+                            <span>📈</span> Patient History
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button id="navBtn_settings" onclick="navigate('settings')">
+                            <span>⚙️</span> User Profile & Settings
+                        </button>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Active User Footer -->
+            <div class="sidebar-user">
+                <div class="user-info" onclick="openAuthModal()" title="Switch User or Sign Out">
+                    <div class="user-avatar" id="sidebarAvatar">RP</div>
+                    <div class="user-details">
+                        <span class="user-name" id="sidebarUserName">Rohit Patil</span>
+                        <span class="user-bmi" id="sidebarUserBMI">BMI: 25.5 · Overweight</span>
+                    </div>
+                </div>
+                <button class="btn-secondary" style="padding: 6px 10px; font-size: 0.75rem;" onclick="openAuthModal()" title="Sign Out or Register">
+                    Switch
+                </button>
+            </div>
+        </aside>
+
+        <!-- ================= MAIN WRAPPER ================= -->
+        <div class="main-wrapper">
+            <!-- App Topbar -->
+            <div class="app-topbar">
+                <div class="topbar-left">
+                    <span class="badge-source" id="dashDateBadge">Active Clinical Session</span>
+                </div>
+                <div style="display: flex; gap: 12px; align-items: center;">
+                    <a href="/" class="btn-secondary" style="font-size: 0.78rem;">
+                        <span>🌐</span> Public Landing Page
+                    </a>
+                    <button class="btn-primary" onclick="navigate('daily-log')">
+                        <span>+</span> Log Today's Vitals
+                    </button>
+                </div>
+            </div>
+
+            <div class="content-container">
+
+                <!-- ================= 1. DASHBOARD VIEW ================= -->
+                <div id="view_dashboard" class="page-view active">
+                    <div class="page-header">
+                        <div>
+                            <h2>Clinical Overview & Biometric Trends</h2>
+                            <p>Continuous multiclass stratification with rolling longitudinal trends and TreeSHAP explainability.</p>
+                        </div>
+                    </div>
+
+                    <!-- 4 Metric Stat Boxes -->
+                    <div class="stats-grid-4">
+                        <div class="stat-box">
+                            <span class="label">Sleep Duration</span>
+                            <div class="value" id="statSleep">5.2 <span style="font-size: 0.8rem; color: var(--text-muted);">hrs</span></div>
+                            <span class="subtext" style="color: var(--status-insomnia);">● Sleep Deficit</span>
+                        </div>
+                        <div class="stat-box">
+                            <span class="label">Blood Pressure</span>
+                            <div class="value" id="statBP">135/88</div>
+                            <span class="subtext" style="color: var(--status-insomnia);">● Pre-Hypertension</span>
+                        </div>
+                        <div class="stat-box">
+                            <span class="label">Pulse Pressure</span>
+                            <div class="value" id="statPP">47 <span style="font-size: 0.8rem; color: var(--text-muted);">mmHg</span></div>
+                            <span class="subtext" id="statPPStatus" style="color: var(--status-healthy);">● Optimal Compliance</span>
+                        </div>
+                        <div class="stat-box">
+                            <span class="label">Resting HR</span>
+                            <div class="value" id="statHR">84 <span style="font-size: 0.8rem; color: var(--text-muted);">bpm</span></div>
+                            <span class="subtext" style="color: var(--status-healthy);">● Normal Range</span>
+                        </div>
+                    </div>
+
+                    <!-- Rolling 7-Day Averages Bar -->
+                    <div class="card" style="margin-bottom: 24px; padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; background: rgba(56, 189, 248, 0.04); border-color: rgba(56, 189, 248, 0.2);">
+                        <div style="display: flex; gap: 28px; flex-wrap: wrap;">
+                            <div>
+                                <span style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">7-Day Sleep Avg</span>
+                                <div style="font-family: 'Outfit'; font-size: 1.15rem; font-weight: 700; color: var(--brand-primary);" id="avgSleep7d">5.4 hrs</div>
+                            </div>
+                            <div>
+                                <span style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">7-Day Heart Rate Avg</span>
+                                <div style="font-family: 'Outfit'; font-size: 1.15rem; font-weight: 700; color: var(--text-heading);" id="avgHR7d">82 bpm</div>
+                            </div>
+                            <div>
+                                <span style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">7-Day Pulse Pressure Avg</span>
+                                <div style="font-family: 'Outfit'; font-size: 1.15rem; font-weight: 700; color: var(--status-insomnia);" id="avgPP7d">48 mmHg</div>
+                            </div>
+                        </div>
+                        <button class="btn-secondary" onclick="navigate('history')">
+                            View Full Timeline →
+                        </button>
+                    </div>
+
+                    <!-- Primary Diagnosis Banner -->
+                    <div class="diagnosis-banner insomnia" id="diagBanner">
+                        <div>
+                            <span style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; color: var(--text-muted);">Clinical Risk Verdict</span>
+                            <div class="title" id="diagTitle">INSOMNIA</div>
+                            <p style="font-size: 0.85rem; color: var(--text-body); margin-top: 4px;">
+                                High probability of sleep fragmentation and hyperarousal based on current telemetry.
+                            </p>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="font-family: 'Outfit'; font-size: 1.8rem; font-weight: 800; color: inherit;" id="diagProb">95.0%</div>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">Model Confidence</span>
+                        </div>
+                    </div>
+
+                    <!-- 2-Column Analytics & Charts -->
+                    <div class="grid-2">
+                        <!-- Left Chart: Longitudinal Trends -->
+                        <div class="card">
+                            <div class="card-title">
+                                <span>📈 Longitudinal Metric Trends (Time-Series)</span>
+                            </div>
+                            <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 12px;">
+                                Tracking Sleep Duration (left axis) against Pulse Pressure arterial stress (right axis):
+                            </p>
+                            <div style="height: 240px; position: relative;">
+                                <canvas id="trendChart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Right: Probabilities & SHAP Biometrics -->
+                        <div class="card">
+                            <div class="card-title">
+                                <span>🔬 Multiclass Distribution & SHAP Drivers</span>
+                            </div>
+                            <div style="margin-bottom: 16px;">
+                                <div style="display: flex; justify-content: space-between; font-size: 0.8rem; font-weight: 600; margin-bottom: 4px;">
+                                    <span>Healthy / Normal</span>
+                                    <span id="probHealthyVal">1.0%</span>
+                                </div>
+                                <div style="height: 6px; background: var(--bg-surface-elevated); border-radius: 4px; overflow: hidden; margin-bottom: 10px;">
+                                    <div class="prob-fill healthy" id="probHealthyBar" style="width: 1%; height: 100%; background: var(--status-healthy);"></div>
+                                </div>
+
+                                <div style="display: flex; justify-content: space-between; font-size: 0.8rem; font-weight: 600; margin-bottom: 4px;">
+                                    <span>Insomnia</span>
+                                    <span id="probInsomniaVal">95.0%</span>
+                                </div>
+                                <div style="height: 6px; background: var(--bg-surface-elevated); border-radius: 4px; overflow: hidden; margin-bottom: 10px;">
+                                    <div class="prob-fill insomnia" id="probInsomniaBar" style="width: 95%; height: 100%; background: var(--status-insomnia);"></div>
+                                </div>
+
+                                <div style="display: flex; justify-content: space-between; font-size: 0.8rem; font-weight: 600; margin-bottom: 4px;">
+                                    <span>Sleep Apnea</span>
+                                    <span id="probApneaVal">4.0%</span>
+                                </div>
+                                <div style="height: 6px; background: var(--bg-surface-elevated); border-radius: 4px; overflow: hidden;">
+                                    <div class="prob-fill apnea" id="probApneaBar" style="width: 4%; height: 100%; background: var(--status-apnea);"></div>
+                                </div>
+                            </div>
+
+                            <span style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700; color: var(--text-muted);">Top 3 Local SHAP Attributions:</span>
+                            <div style="height: 120px; position: relative; margin-top: 6px;">
+                                <canvas id="shapChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Daily NLP Journal Banner -->
+                    <div class="card" id="dashNlpBox" style="margin-top: 24px; display: none;">
+                        <div class="card-title">
+                            <span>🧠 Daily Clinical Sleep Journal (NLP Screener)</span>
+                            <span class="badge-source" id="dashNlpTag">Moderate Alert</span>
+                        </div>
+                        <p id="dashNlpText" style="font-size: 0.9rem; color: var(--text-heading); font-style: italic; margin-bottom: 8px;">
+                            "Patient reported: Woke up feeling unrefreshed, took over 45 minutes to fall asleep with racing thoughts."
+                        </p>
+                        <p id="dashNlpUrgency" style="font-size: 0.8rem; color: var(--text-muted);">
+                            Detected clinical symptom indicators.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- ================= 2. DAILY MANUAL LOG VIEW ================= -->
+                <div id="view_daily-log" class="page-view">
+                    <div class="page-header">
+                        <div>
+                            <h2>Daily Patient Intake & Symptom Screener</h2>
+                            <p>Log your daily metrics. Free-text notes are analyzed by our clinical NLP rule engine.</p>
+                        </div>
+                    </div>
+
+                    <div class="card" style="max-width: 800px; margin: 0 auto;">
+                        <form id="dailyLogForm" onsubmit="handleDailyLogSubmit(event)">
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label for="logDate">Date of Entry</label>
+                                    <input type="date" id="logDate" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="logDuration">Sleep Duration (Hours)</label>
+                                    <input type="number" id="logDuration" step="0.1" min="2" max="14" value="6.5" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="logQuality">Sleep Quality Rating (1 - 10)</label>
+                                    <input type="number" id="logQuality" min="1" max="10" value="6" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="logStress">Perceived Stress (1 - 10)</label>
+                                    <input type="number" id="logStress" min="1" max="10" value="5" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="logActivity">Physical Activity (Minutes/Day)</label>
+                                    <input type="number" id="logActivity" min="0" max="240" value="45" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="logSteps">Daily Steps</label>
+                                    <input type="number" id="logSteps" min="500" max="30000" step="100" value="6000" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="logHR">Resting Heart Rate (BPM)</label>
+                                    <input type="number" id="logHR" min="40" max="140" value="72" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Blood Pressure (Systolic / Diastolic mmHg)</label>
+                                    <div style="display: flex; gap: 8px;">
+                                        <input type="number" id="logSys" placeholder="Systolic (120)" min="80" max="220" value="125" required>
+                                        <input type="number" id="logDia" placeholder="Diastolic (80)" min="50" max="140" value="82" required>
+                                    </div>
+                                </div>
+
+                                <div class="form-group full">
+                                    <label for="logJournal">
+                                        🧠 Sleep & Symptom Free-Text Journal
+                                        <span style="color: var(--brand-primary); font-weight: normal; font-size: 0.75rem;">(Clinical NLP Screener parses for gasping, choking, morning headaches, racing thoughts)</span>
+                                    </label>
+                                    <textarea id="logJournal" placeholder="e.g. Woke up at 3 am gasping for air, had a dull morning headache and dry mouth..."></textarea>
+                                </div>
+                            </div>
+
+                            <div style="margin-top: 24px; display: flex; justify-content: flex-end; gap: 12px;">
+                                <button type="button" class="btn-secondary" onclick="navigate('dashboard')">Cancel</button>
+                                <button type="submit" class="btn-primary" id="btnSaveDailyLog">
+                                    <span>💾</span> Save Daily Entry & Stratify Risk
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- ================= 3. WEARABLE & GOOGLE FIT VIEW ================= -->
+                <div id="view_wearable" class="page-view">
+                    <div class="page-header">
+                        <div>
+                            <h2>Wearable Ingestion & Google Health Connect</h2>
+                            <p>Synchronize multi-day time-series telemetry directly from Google Fit or upload Apple Health / Fitbit CSV files.</p>
+                        </div>
+                        <a href="/api/wearable/sample-csv" download="sample_wearable_export.csv" class="btn-secondary">
+                            <span>📥</span> Download Sample Wearable CSV
+                        </a>
+                    </div>
+
+                    <div style="max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px;">
+                        <!-- Google Health Connect 1-Click Sync Card -->
+                        <div class="card" style="border-color: rgba(56, 189, 248, 0.4); background: linear-gradient(135deg, rgba(2, 132, 199, 0.08) 0%, rgba(18, 26, 45, 1) 100%);">
+                            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;">
+                                <div style="display: flex; align-items: center; gap: 16px;">
+                                    <div style="width: 50px; height: 50px; border-radius: var(--radius-sm); background: white; display: flex; align-items: center; justify-content: center; font-size: 26px;">
+                                        ⚡
+                                    </div>
+                                    <div>
+                                        <h3 style="font-family: 'Outfit'; font-size: 1.2rem; color: var(--text-heading);">
+                                            Google Health Connect / Google Fit
+                                        </h3>
+                                        <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 2px;">
+                                            Synchronize authenticated nocturnal stream (Sleep stages, HRV, Pulse Pressure).
+                                        </p>
+                                    </div>
+                                </div>
+                                <button class="btn-primary" id="btnGoogleFit" onclick="syncGoogleFit()">
+                                    <span>⚡</span> Connect & Sync Google Health
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Drag & Drop CSV Dropzone -->
+                        <div class="card">
+                            <div class="card-title">
+                                <span>📁 Wearable CSV Export Drag & Drop</span>
+                            </div>
+                            <div id="csvDropzone" style="border: 2px dashed var(--border-subtle); border-radius: var(--radius-md); padding: 40px 20px; text-align: center; cursor: pointer; transition: all 0.2s;" onclick="document.getElementById('csvFileInput').click()">
+                                <div style="font-size: 40px; margin-bottom: 12px;">⌚</div>
+                                <h3 style="color: var(--text-heading); font-size: 1.1rem; margin-bottom: 6px;">
+                                    Drag & Drop Wearable Export CSV Here
+                                </h3>
+                                <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 16px;">
+                                    Accepts multi-day telemetry exports from Apple Health, Garmin, or Fitbit.
+                                </p>
+                                <button type="button" class="btn-secondary" style="pointer-events: none;">Browse CSV File</button>
+                                <input type="file" id="csvFileInput" accept=".csv" style="display: none;" onchange="if (this.files.length > 0) uploadCSVFile(this.files[0])">
+                            </div>
+
+                            <p id="csvUploadMsg" style="display: none; margin-top: 14px; font-size: 0.85rem; font-weight: 600; color: var(--brand-primary);"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ================= 4. PATIENT HISTORY VIEW ================= -->
+                <div id="view_history" class="page-view">
+                    <div class="page-header">
+                        <div>
+                            <h2>Patient Longitudinal Assessment Timeline</h2>
+                            <p>Complete historical log of daily assessments, computed Pulse Pressure, and NLP symptom flags.</p>
+                        </div>
+                        <button class="btn-secondary" onclick="loadPatientHistory()">
+                            <span>🔄</span> Refresh History
+                        </button>
+                    </div>
+
+                    <div class="card">
+                        <div style="overflow-x: auto;">
+                            <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem;">
+                                <thead>
+                                    <tr style="border-bottom: 1px solid var(--border-subtle); color: var(--text-muted);">
+                                        <th style="padding: 12px;">Date</th>
+                                        <th style="padding: 12px;">Data Source</th>
+                                        <th style="padding: 12px;">Sleep (hrs)</th>
+                                        <th style="padding: 12px;">Blood Pressure</th>
+                                        <th style="padding: 12px;">Pulse Pressure</th>
+                                        <th style="padding: 12px;">Primary Stratification</th>
+                                        <th style="padding: 12px;">NLP Flag</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="historyTbody">
+                                    <tr>
+                                        <td colspan="7" style="padding: 20px; text-align: center; color: var(--text-muted);">Loading patient records...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ================= 5. USER SETTINGS VIEW ================= -->
+                <div id="view_settings" class="page-view">
+                    <div class="page-header">
+                        <div>
+                            <h2>User Profile & Biometric Settings</h2>
+                            <p>Update your biometrics. Height and weight changes immediately recalculate your clinical BMI.</p>
+                        </div>
+                    </div>
+
+                    <div class="card" style="max-width: 680px; margin: 0 auto;">
+                        <form id="settingsForm" onsubmit="handleSaveSettings(event)">
+                            <div class="form-grid">
+                                <div class="form-group full">
+                                    <label for="settingName">Full Name</label>
+                                    <input type="text" id="settingName" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="settingAge">Age (Years)</label>
+                                    <input type="number" id="settingAge" min="18" max="100" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="settingGender">Biological Sex</label>
+                                    <select id="settingGender">
+                                        <option value="Male">Male</option>
+                                        <option value="Female">Female</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="settingHeight">Height (cm)</label>
+                                    <input type="number" id="settingHeight" min="100" max="230" oninput="calculateLiveBMI()" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="settingWeight">Weight (kg)</label>
+                                    <input type="number" id="settingWeight" min="30" max="220" oninput="calculateLiveBMI()" required>
+                                </div>
+                            </div>
+
+                            <!-- Live Auto-Calculated BMI Banner -->
+                            <div style="background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 14px 18px; margin: 20px 0; display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <span style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700; color: var(--text-muted);">Recalculated Clinical BMI (WHO Standards)</span>
+                                    <div style="font-family: 'Outfit'; font-size: 1.3rem; font-weight: 800; color: var(--brand-primary);" id="liveBMIDisplay">25.5 (Overweight)</div>
+                                </div>
+                                <span style="font-size: 0.72rem; color: var(--text-muted);">Auto-Updates Model Prior</span>
+                            </div>
+
+                            <p id="settingsSuccessMsg" style="display: none; color: var(--status-healthy); font-size: 0.85rem; font-weight: 700; margin-bottom: 12px;">
+                                ✅ Settings updated successfully!
+                            </p>
+
+                            <button type="submit" class="btn-primary" style="width: 100%;">
+                                Save Updated Settings
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= AUTH MODAL (SIGN IN / REGISTER) ================= -->
+    <div class="modal-overlay" id="authModal">
+        <div class="modal-card">
+            <div style="display: flex; gap: 12px; border-bottom: 1px solid var(--border-subtle); margin-bottom: 20px; padding-bottom: 10px;">
+                <button type="button" class="btn-secondary" id="tabLoginBtn" style="border: none; background: none; font-weight: 700;" onclick="switchAuthTab('login')">Sign In</button>
+                <button type="button" class="btn-secondary" id="tabRegisterBtn" style="border: none; background: none; color: var(--text-muted);" onclick="switchAuthTab('register')">New Patient Account</button>
+            </div>
+
+            <!-- Login Form -->
+            <form id="loginForm" onsubmit="handleLogin(event)">
+                <div style="display: flex; flex-direction: column; gap: 14px;">
+                    <div class="form-group">
+                        <label for="loginEmail">Email Address</label>
+                        <input type="email" id="loginEmail" value="rohit@somnosense.org" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="loginPassword">Password</label>
+                        <input type="password" id="loginPassword" value="demo123" required>
+                    </div>
+                    <p style="font-size: 0.75rem; color: var(--text-muted);">
+                        Demo account credentials pre-filled.
+                    </p>
+                    <button type="submit" class="btn-primary" style="margin-top: 8px;">Sign In</button>
+                </div>
+            </form>
+
+            <!-- Register Form -->
+            <form id="registerForm" onsubmit="handleRegister(event)" style="display: none;">
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                    <div class="form-group">
+                        <label for="regName">Full Name</label>
+                        <input type="text" id="regName" placeholder="Priya Sharma" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="regEmail">Email Address</label>
+                        <input type="email" id="regEmail" placeholder="priya@hospital.org" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="regPass">Password</label>
+                        <input type="password" id="regPass" required>
+                    </div>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="regAge">Age</label>
+                            <input type="number" id="regAge" min="18" max="100" value="35" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="regGender">Biological Sex</label>
+                            <select id="regGender">
+                                <option value="Male">Male</option>
+                                <option value="Female">Female</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="regHeight">Height (cm)</label>
+                            <input type="number" id="regHeight" min="100" max="230" value="175" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="regWeight">Weight (kg)</label>
+                            <input type="number" id="regWeight" min="30" max="220" value="70" required>
+                        </div>
+                    </div>
+                    <p style="font-size: 0.75rem; color: var(--brand-primary);">
+                        *BMI is automatically calculated according to WHO clinical guidelines.
+                    </p>
+                    <button type="submit" class="btn-primary" style="margin-top: 6px;">Register Account</button>
+                </div>
+            </form>
+
+            <button type="button" class="btn-secondary" style="width: 100%; margin-top: 16px;" onclick="closeAuthModal()">Close</button>
+        </div>
+    </div>
+
+    <!-- Script Controller -->
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
