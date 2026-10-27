@@ -63,6 +63,8 @@ function navigate(pageId) {
     } else if (pageId === 'daily-log') {
         document.getElementById('logDate').value = new Date().toISOString().split('T')[0];
         calculateLiveSleepDuration();
+    } else if (pageId === 'screening') {
+        loadClinicalScreener();
     } else if (pageId === 'analytics') {
         loadDashboardData();
     } else if (pageId === 'history') {
@@ -370,6 +372,31 @@ function updateConfidenceGauge(confidencePercent, statusClass) {
 function renderDashboardCards(latestLog) {
     const badge = document.getElementById('dashDateBadge');
     if (badge) badge.textContent = `LAST ASSESSED: ${latestLog.log_date} | PATIENT: ${currentUser.name.toUpperCase()}`;
+
+    // 0. Acute Red-Flag Emergency Triage Alert Banner
+    const triageBanner = document.getElementById('triageAlertBanner');
+    const triageReason = document.getElementById('triageReasonText');
+    const isRedFlag = latestLog.is_red_flag || (latestLog.systolic_bp >= 160 || latestLog.diastolic_bp >= 100 || latestLog.heart_rate >= 115 || latestLog.heart_rate <= 45);
+
+    if (triageBanner) {
+        if (isRedFlag) {
+            triageBanner.style.display = 'block';
+            let reasons = [];
+            if (latestLog.systolic_bp >= 160 || latestLog.diastolic_bp >= 100) {
+                reasons.push(`Acute Hypertensive Spikes (${latestLog.systolic_bp}/${latestLog.diastolic_bp} mmHg)`);
+            }
+            if (latestLog.heart_rate >= 115) {
+                reasons.push(`Marked Tachycardia (${latestLog.heart_rate} bpm)`);
+            } else if (latestLog.heart_rate <= 45) {
+                reasons.push(`Severe Bradycardia (${latestLog.heart_rate} bpm)`);
+            }
+            if (triageReason) {
+                triageReason.textContent = `Cardiovascular urgency detected: ${reasons.join(', ')}. Immediate clinical assessment, tele-consultation, or emergency evaluation is advised.`;
+            }
+        } else {
+            triageBanner.style.display = 'none';
+        }
+    }
     
     // 1. Diagnostic Readout Tile & Animated Circular Gauge
     const diagVerdict = document.getElementById('diagVerdict');
@@ -940,6 +967,27 @@ function openClinicalReportModal() {
         }
     }
 
+    // Update Standardized Screeners in modal
+    const repStopBang = document.getElementById('reportStopBangScore');
+    const repEss = document.getElementById('reportEssScore');
+    const repTriage = document.getElementById('reportTriageStatus');
+
+    if (repStopBang) {
+        repStopBang.textContent = `Score: ${latestScreenerGlobal.stop_bang_score}/8 (${latestScreenerGlobal.stop_bang_risk})`;
+    }
+    if (repEss) {
+        repEss.textContent = `Score: ${latestScreenerGlobal.ess_score}/24 (${latestScreenerGlobal.ess_severity})`;
+    }
+    if (repTriage) {
+        if (latestLogGlobal && (latestLogGlobal.is_red_flag || latestLogGlobal.systolic_bp >= 160 || latestLogGlobal.diastolic_bp >= 100)) {
+            repTriage.textContent = 'CRITICAL: Severe Hypertensive Urgency Flag';
+            repTriage.style.color = 'var(--status-abnormal)';
+        } else {
+            repTriage.textContent = 'No Acute Cardiovascular Flags';
+            repTriage.style.color = 'var(--status-normal)';
+        }
+    }
+
     modal.classList.add('open');
 }
 
@@ -948,11 +996,197 @@ function closeClinicalReportModal() {
     if (modal) modal.classList.remove('open');
 }
 
+// ================= STANDARDIZED CLINICAL SCREENERS (STOP-BANG & ESS) =================
+let latestScreenerGlobal = {
+    stop_bang_score: 1,
+    stop_bang_risk: "Low Risk",
+    ess_score: 5,
+    ess_severity: "Normal Sleepiness",
+    notes: ""
+};
+
+function calculateLiveScreeners() {
+    // STOP-BANG Scoring
+    const sbIds = ['sb_snore', 'sb_tired', 'sb_observed', 'sb_pressure', 'sb_bmi', 'sb_age', 'sb_neck', 'sb_gender'];
+    let sbScore = 0;
+    sbIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el && el.checked) sbScore++;
+    });
+
+    let sbRisk = "Low Risk";
+    let sbBadgeClass = "normal";
+    if (sbScore >= 5) {
+        sbRisk = "High Risk";
+        sbBadgeClass = "abnormal";
+    } else if (sbScore >= 3) {
+        sbRisk = "Intermediate Risk";
+        sbBadgeClass = "borderline";
+    }
+
+    const sbDisplay = document.getElementById('stopBangLiveScoreDisplay');
+    const sbBadge = document.getElementById('stopBangRiskBadge');
+    if (sbDisplay) sbDisplay.textContent = `${sbScore} / 8`;
+    if (sbBadge) {
+        sbBadge.textContent = `${sbRisk.toUpperCase()}`;
+        sbBadge.style.color = `var(--status-${sbBadgeClass})`;
+        sbBadge.style.borderColor = `var(--status-${sbBadgeClass})`;
+        sbBadge.style.background = sbBadgeClass === 'normal' ? 'rgba(86, 169, 131, 0.15)' : (sbBadgeClass === 'borderline' ? 'rgba(217, 143, 62, 0.15)' : 'rgba(201, 89, 79, 0.15)');
+    }
+
+    // Epworth Sleepiness Scale (ESS) Scoring
+    let essTotal = 0;
+    for (let i = 1; i <= 8; i++) {
+        const sel = document.getElementById(`ess_${i}`);
+        if (sel) essTotal += parseInt(sel.value || 0);
+    }
+
+    let essSeverity = "Normal Sleepiness";
+    let essBadgeClass = "normal";
+    if (essTotal >= 16) {
+        essSeverity = "Severe Excessive Somnolence";
+        essBadgeClass = "abnormal";
+    } else if (essTotal >= 10) {
+        essSeverity = "Moderate Excessive Somnolence";
+        essBadgeClass = "borderline";
+    } else if (essTotal >= 8) {
+        essSeverity = "Mild Excessive Somnolence";
+        essBadgeClass = "borderline";
+    }
+
+    const essDisplay = document.getElementById('essLiveScoreDisplay');
+    const essBadge = document.getElementById('essSeverityBadge');
+    if (essDisplay) essDisplay.textContent = `${essTotal} / 24`;
+    if (essBadge) {
+        essBadge.textContent = `${essSeverity.toUpperCase()}`;
+        essBadge.style.color = `var(--status-${essBadgeClass})`;
+        essBadge.style.borderColor = `var(--status-${essBadgeClass})`;
+        essBadge.style.background = essBadgeClass === 'normal' ? 'rgba(86, 169, 131, 0.15)' : (essBadgeClass === 'borderline' ? 'rgba(217, 143, 62, 0.15)' : 'rgba(201, 89, 79, 0.15)');
+    }
+
+    latestScreenerGlobal.stop_bang_score = sbScore;
+    latestScreenerGlobal.stop_bang_risk = sbRisk;
+    latestScreenerGlobal.ess_score = essTotal;
+    latestScreenerGlobal.ess_severity = essSeverity;
+}
+
+async function handleSaveScreeners() {
+    calculateLiveScreeners();
+    const btn = document.getElementById('btnSaveScreeners');
+    const statusEl = document.getElementById('screenerSaveStatus');
+
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Saving Questionnaires...';
+    }
+
+    try {
+        const payload = {
+            user_id: currentUser.id,
+            stop_bang_score: latestScreenerGlobal.stop_bang_score,
+            stop_bang_risk: latestScreenerGlobal.stop_bang_risk,
+            ess_score: latestScreenerGlobal.ess_score,
+            ess_severity: latestScreenerGlobal.ess_severity,
+            notes: `STOP-BANG: ${latestScreenerGlobal.stop_bang_score}/8 (${latestScreenerGlobal.stop_bang_risk}) | ESS: ${latestScreenerGlobal.ess_score}/24 (${latestScreenerGlobal.ess_severity})`
+        };
+
+        const res = await fetch('/api/screener/submit', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Failed to save screener');
+
+        if (statusEl) {
+            statusEl.style.color = 'var(--status-normal)';
+            statusEl.textContent = `Questionnaires synchronized successfully (${new Date().toLocaleTimeString()}). Included in Clinical Dossier.`;
+        }
+    } catch (err) {
+        if (statusEl) {
+            statusEl.style.color = 'var(--status-abnormal)';
+            statusEl.textContent = `Failed to save: ${err.message}`;
+        }
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = 'Save & Sync Clinical Questionnaires';
+        }
+    }
+}
+
+async function loadClinicalScreener() {
+    // Auto-populate STOP-BANG demographic prior flags
+    const sbBmi = document.getElementById('sb_bmi');
+    const sbAge = document.getElementById('sb_age');
+    const sbGender = document.getElementById('sb_gender');
+
+    if (sbBmi) sbBmi.checked = (currentUser.bmi || 24.5) > 35;
+    if (sbAge) sbAge.checked = (currentUser.age || 32) > 50;
+    if (sbGender) sbGender.checked = (currentUser.gender || 'Male').toLowerCase() === 'male';
+
+    try {
+        const res = await fetch(`/api/screener/latest/${currentUser.id}`);
+        if (res.ok) {
+            const data = await res.json();
+            if (data.screener) {
+                latestScreenerGlobal = data.screener;
+            }
+        }
+    } catch (e) {
+        console.warn('Could not fetch screener:', e);
+    }
+
+    calculateLiveScreeners();
+}
+
+// ================= 1-CLICK WHATSAPP SHARING =================
+function shareClinicalSummaryWhatsApp() {
+    const pName = currentUser.name || "Patient";
+    const pAgeGender = `${currentUser.age || 32}y / ${currentUser.gender || 'Male'}`;
+    const date = latestLogGlobal ? latestLogGlobal.log_date : new Date().toISOString().split('T')[0];
+    const diag = latestLogGlobal ? latestLogGlobal.prediction : "Assessment in Progress";
+    const sleep = latestLogGlobal ? `${latestLogGlobal.sleep_duration} hrs` : "N/A";
+    const bp = latestLogGlobal ? `${latestLogGlobal.systolic_bp}/${latestLogGlobal.diastolic_bp} mmHg` : "N/A";
+    const pp = latestLogGlobal ? `${latestLogGlobal.pulse_pressure} mmHg` : "N/A";
+    const hr = latestLogGlobal ? `${latestLogGlobal.heart_rate} bpm` : "N/A";
+    const sb = `${latestScreenerGlobal.stop_bang_score}/8 (${latestScreenerGlobal.stop_bang_risk})`;
+    const ess = `${latestScreenerGlobal.ess_score}/24 (${latestScreenerGlobal.ess_severity})`;
+
+    const isTriage = latestLogGlobal && (latestLogGlobal.is_red_flag || latestLogGlobal.systolic_bp >= 160 || latestLogGlobal.diastolic_bp >= 100);
+    const triageNotice = isTriage ? "\n⚠️ *TRIAGE ALERT:* Acute hypertensive / cardiovascular flag detected. Medical review advised.\n" : "";
+
+    const message = `📋 *SomnoSense Clinical Decision Summary*
+*Patient:* ${pName} (${pAgeGender})
+*Date:* ${date}
+${triageNotice}
+🩺 *Stratified Diagnosis:* ${diag}
+⏱️ *Sleep Duration:* ${sleep}
+💓 *Blood Pressure:* ${bp}
+🫀 *Pulse Pressure:* ${pp}
+📈 *Resting Pulse:* ${hr}
+
+📊 *Clinical Questionnaires:*
+• *STOP-BANG (OSA Risk):* ${sb}
+• *Epworth Scale (ESS):* ${ess}
+
+🌐 *Tele-OPD & Gateways:*
+• eSanjeevani (Free Govt OPD): https://esanjeevani.mohfw.gov.in/
+• Tele-MANAS (24x7 Helpline): Dial 14416
+
+_Generated via SomnoSense Decision Support System_`;
+
+    const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
+    window.open(whatsappUrl, '_blank');
+}
+
 // ================= INITIALIZATION =================
 window.addEventListener('DOMContentLoaded', () => {
     initTheme();
     updateUserUI();
     calculateLiveSleepDuration();
+    loadClinicalScreener();
     loadDashboardData();
 
     const dropzone = document.getElementById('csvDropzone');

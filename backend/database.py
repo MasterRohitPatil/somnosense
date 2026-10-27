@@ -125,6 +125,22 @@ def init_db():
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, seed_logs)
 
+    # Clinical Questionnaires Table (STOP-BANG & Epworth Sleepiness Scale)
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS clinical_screenings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        screener_date DATE NOT NULL,
+        stop_bang_score INTEGER NOT NULL,
+        stop_bang_risk TEXT NOT NULL,
+        ess_score INTEGER NOT NULL,
+        ess_severity TEXT NOT NULL,
+        notes TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users (id)
+    );
+    """)
+
     conn.commit()
     conn.close()
 
@@ -312,5 +328,37 @@ def get_user_analytics(user_id: int) -> Dict[str, Any]:
         "heart_rates": [r['heart_rate'] for r in rows],
         "predictions": [r['prediction'] for r in rows]
     }
+
+def save_clinical_screener(user_id: int, stop_bang_score: int, stop_bang_risk: str, ess_score: int, ess_severity: str, notes: str = "") -> dict:
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    cursor.execute("""
+        INSERT INTO clinical_screenings (user_id, screener_date, stop_bang_score, stop_bang_risk, ess_score, ess_severity, notes)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    """, (user_id, today_str, stop_bang_score, stop_bang_risk, ess_score, ess_severity, notes))
+    conn.commit()
+    inserted_id = cursor.lastrowid
+    conn.close()
+    return {
+        "id": inserted_id,
+        "user_id": user_id,
+        "screener_date": today_str,
+        "stop_bang_score": stop_bang_score,
+        "stop_bang_risk": stop_bang_risk,
+        "ess_score": ess_score,
+        "ess_severity": ess_severity,
+        "notes": notes
+    }
+
+def get_latest_clinical_screener(user_id: int) -> Optional[dict]:
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT * FROM clinical_screenings WHERE user_id = ? ORDER BY screener_date DESC, id DESC LIMIT 1
+    """, (user_id,))
+    row = cursor.fetchone()
+    conn.close()
+    return dict(row) if row else None
 
 init_db()

@@ -78,6 +78,14 @@ class DailyLogRequest(BaseModel):
     journal_text: Optional[str] = ""
     log_date: Optional[str] = None
 
+class ScreenerSubmission(BaseModel):
+    user_id: int
+    stop_bang_score: int
+    stop_bang_risk: str
+    ess_score: int
+    ess_severity: str
+    notes: Optional[str] = ""
+
 class GoogleFitSyncRequest(BaseModel):
     user_id: int
     google_account_email: Optional[str] = "rohit@gmail.com"
@@ -332,6 +340,16 @@ def create_daily_log(req: DailyLogRequest):
     }
     log_id = database.save_daily_log(req.user_id, log_record)
 
+    # Clinical Emergency Red-Flag Assessment
+    is_red_flag = False
+    red_flag_reason = ""
+    if req.systolic_bp >= 160 or req.diastolic_bp >= 100:
+        is_red_flag = True
+        red_flag_reason = f"Stage 2 Hypertensive Urgency (BP {int(req.systolic_bp)}/{int(req.diastolic_bp)} mmHg). Immediate medical review recommended."
+    elif req.heart_rate >= 115 or req.heart_rate <= 45:
+        is_red_flag = True
+        red_flag_reason = f"Cardiac Rhythm Alert ({int(req.heart_rate)} bpm). Autonomic rate instability detected."
+
     return {
         "status": "success",
         "log_id": log_id,
@@ -343,8 +361,29 @@ def create_daily_log(req: DailyLogRequest):
         "sleep_efficiency": ml_res['sleep_efficiency'],
         "plain_english_summary": ml_res['plain_english_summary'],
         "actionable_next_steps": ml_res['actionable_next_steps'],
-        "nlp_analysis": nlp_results
+        "nlp_analysis": nlp_results,
+        "is_red_flag": is_red_flag,
+        "red_flag_reason": red_flag_reason
     }
+
+# --- Clinical Standardized Screening Endpoints (STOP-BANG & ESS) ---
+
+@app.post("/api/screener/submit")
+def submit_clinical_screener(data: ScreenerSubmission):
+    record = database.save_clinical_screener(
+        user_id=data.user_id,
+        stop_bang_score=data.stop_bang_score,
+        stop_bang_risk=data.stop_bang_risk,
+        ess_score=data.ess_score,
+        ess_severity=data.ess_severity,
+        notes=data.notes or ""
+    )
+    return {"status": "success", "screener": record}
+
+@app.get("/api/screener/latest/{user_id}")
+def get_latest_screener(user_id: int):
+    record = database.get_latest_clinical_screener(user_id)
+    return {"user_id": user_id, "has_screener": record is not None, "screener": record}
 
 @app.get("/api/logs/history/{user_id}")
 def get_user_history(user_id: int):

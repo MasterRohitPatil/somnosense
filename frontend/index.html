@@ -35,6 +35,11 @@
                         </button>
                     </li>
                     <li class="nav-item">
+                        <button id="navBtn_screening" onclick="navigate('screening')">
+                            STOP-BANG & ESS Screener
+                        </button>
+                    </li>
+                    <li class="nav-item">
                         <button id="navBtn_analytics" onclick="navigate('analytics')">
                             In-Depth Analytics & SHAP
                         </button>
@@ -83,8 +88,11 @@
             <!-- Topbar -->
             <div class="app-topbar">
                 <span class="mono" id="dashDateBadge" style="font-size: 0.75rem; color: var(--text-secondary);">ACTIVE PATIENT: ROHIT PATIL (ROHIT@GMAIL.COM)</span>
-                <div style="display: flex; gap: 10px; align-items: center;">
+                <div style="display: flex; gap: 8px; align-items: center;">
                     <a href="/" class="btn-outline icon-ext" style="font-size: 0.78rem;">Public Overview</a>
+                    <button type="button" class="btn-outline" id="btnShareWhatsApp" onclick="shareClinicalSummaryWhatsApp()" style="font-size: 0.78rem; border-color: var(--status-normal); color: var(--status-normal);">
+                        Share on WhatsApp
+                    </button>
                     <button type="button" class="btn-outline" id="btnExportReport" onclick="openClinicalReportModal()" style="font-size: 0.78rem;">
                         Export Clinical Report
                     </button>
@@ -105,6 +113,24 @@
                         <span class="mono" id="whoCohortBadge" style="font-size: 0.72rem; color: var(--accent); background: var(--bg-surface-elevated); padding: 4px 10px; border-radius: 3px; border: 1px solid var(--border-subtle);">
                             WHO COHORT: ADULT (26-64 YRS) | TARGET: 7.0 - 9.0 HRS
                         </span>
+                    </div>
+
+                    <!-- Acute Red-Flag Emergency Triage Alert Banner (Dynamic) -->
+                    <div id="triageAlertBanner" class="panel" style="display: none; border: 1px solid var(--status-abnormal); background: rgba(201, 89, 79, 0.08); margin-bottom: 16px;">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; flex-wrap: wrap;">
+                            <div>
+                                <div style="font-family: var(--font-mono); font-weight: 700; color: var(--status-abnormal); font-size: 0.88rem;">
+                                    CRITICAL CLINICAL RED-FLAG: CARDIOVASCULAR URGENCY DETECTED
+                                </div>
+                                <p id="triageReasonText" style="font-size: 0.82rem; color: var(--text-primary); margin-top: 4px; line-height: 1.5;">
+                                    Severe hypertensive blood pressure spikes detected. Immediate clinical assessment recommended.
+                                </p>
+                            </div>
+                            <div style="display: flex; gap: 8px; flex-shrink: 0;">
+                                <a href="tel:112" class="btn-primary" style="background: var(--status-abnormal); border-color: var(--status-abnormal); font-size: 0.75rem;">Call 112 (Emergency)</a>
+                                <a href="https://esanjeevani.mohfw.gov.in/" target="_blank" class="btn-outline" style="font-size: 0.75rem;">eSanjeevani Tele-OPD ↗</a>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Diagnostic Readout Tile with Animated Circular Confidence Gauge -->
@@ -228,8 +254,85 @@
                         </ul>
                     </div>
 
+                    <!-- Official Government & Tele-Health Gateways -->
+                    <div class="panel" style="margin-top: 18px;">
+                        <div class="panel-header">
+                            <h3>Official Health Gateways & Tele-Consultation</h3>
+                            <span class="panel-header-action">Verified National Portals</span>
+                        </div>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin-top: 12px;">
+                            <!-- eSanjeevani Tele-OPD -->
+                            <div style="background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: 4px; padding: 14px; display: flex; flex-direction: column; justify-content: space-between;">
+                                <div>
+                                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px;">
+                                        <span class="mono" style="font-size: 0.72rem; color: var(--accent); font-weight: 600;">FREE GOVT TELE-OPD</span>
+                                        <span class="mono" style="font-size: 0.68rem; color: var(--status-normal);">MoHFW</span>
+                                    </div>
+                                    <h4 style="font-size: 0.92rem; font-weight: 600; color: var(--text-primary); margin-bottom: 6px;">eSanjeevani Tele-OPD</h4>
+                                    <p style="font-size: 0.78rem; color: var(--text-secondary); line-height: 1.5; margin-bottom: 12px;">
+                                        Connect live with certified government doctors and sleep specialists for online clinical prescriptions and follow-ups.
+                                    </p>
+                                </div>
+                                <a href="https://esanjeevani.mohfw.gov.in/" target="_blank" rel="noopener noreferrer" class="btn-outline" style="text-align: center; font-size: 0.76rem;">
+                                    Launch eSanjeevani Portal ↗
+                                </a>
+                            </div>
+
+                            <!-- Tele-MANAS Helpline -->
+                            <div style="background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: 4px; padding: 14px; display: flex; flex-direction: column; justify-content: space-between;">
+                                <div>
+                                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px;">
+                                        <span class="mono" style="font-size: 0.72rem; color: var(--status-borderline); font-weight: 600;">24x7 TOLL-FREE HELPLINE</span>
+                                        <span class="mono" style="font-size: 0.68rem; color: var(--status-normal);">Active</span>
+                                    </div>
+                                    <h4 style="font-size: 0.92rem; font-weight: 600; color: var(--text-primary); margin-bottom: 6px;">Tele-MANAS (Dial 14416)</h4>
+                                    <p style="font-size: 0.78rem; color: var(--text-secondary); line-height: 1.5; margin-bottom: 12px;">
+                                        Government of India 24x7 psychological and sleep health counseling service. Multi-lingual support across all states.
+                                    </p>
+                                </div>
+                                <a href="tel:14416" class="btn-outline" style="text-align: center; font-size: 0.76rem; border-color: var(--status-borderline); color: var(--status-borderline);">
+                                    Call 14416 (Free)
+                                </a>
+                            </div>
+
+                            <!-- ABHA Health ID -->
+                            <div style="background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: 4px; padding: 14px; display: flex; flex-direction: column; justify-content: space-between;">
+                                <div>
+                                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px;">
+                                        <span class="mono" style="font-size: 0.72rem; color: var(--accent); font-weight: 600;">DIGITAL HEALTH ID</span>
+                                        <span class="mono" style="font-size: 0.68rem; color: var(--text-secondary);">ABDM</span>
+                                    </div>
+                                    <h4 style="font-size: 0.92rem; font-weight: 600; color: var(--text-primary); margin-bottom: 6px;">ABHA Digital Record</h4>
+                                    <p style="font-size: 0.78rem; color: var(--text-secondary); line-height: 1.5; margin-bottom: 12px;">
+                                        Link your SomnoSense clinical records to your 14-digit Ayushman Bharat Health Account for hospital portability.
+                                    </p>
+                                </div>
+                                <a href="https://abha.abdm.gov.in/" target="_blank" rel="noopener noreferrer" class="btn-outline" style="text-align: center; font-size: 0.76rem;">
+                                    Open ABHA Portal ↗
+                                </a>
+                            </div>
+
+                            <!-- Local Sleep Labs / Clinics -->
+                            <div style="background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: 4px; padding: 14px; display: flex; flex-direction: column; justify-content: space-between;">
+                                <div>
+                                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px;">
+                                        <span class="mono" style="font-size: 0.72rem; color: var(--accent); font-weight: 600;">IN-PERSON CARE</span>
+                                        <span class="mono" style="font-size: 0.68rem; color: var(--text-secondary);">Polysomnography</span>
+                                    </div>
+                                    <h4 style="font-size: 0.92rem; font-weight: 600; color: var(--text-primary); margin-bottom: 6px;">Nearby Sleep Disorder Labs</h4>
+                                    <p style="font-size: 0.78rem; color: var(--text-secondary); line-height: 1.5; margin-bottom: 12px;">
+                                        Find accredited pulmonologists, ENT sleep surgeons, and overnight polysomnography (PSG) labs in your city.
+                                    </p>
+                                </div>
+                                <a href="https://www.google.com/maps/search/sleep+disorder+clinic+or+pulmonologist+near+me" target="_blank" rel="noopener noreferrer" class="btn-outline" style="text-align: center; font-size: 0.76rem;">
+                                    Locate Sleep Labs Near Me ↗
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Quick Navigation to In-Depth Charts -->
-                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 4px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 4px; margin-top: 14px;">
                         <span style="font-size: 0.8rem; color: var(--text-secondary);">Want to inspect machine learning curve attributions and longitudinal graphs?</span>
                         <button type="button" class="btn-outline" onclick="navigate('analytics')">
                             Open In-Depth Analytics & SHAP →
@@ -329,7 +432,188 @@
                     </div>
                 </div>
 
-                <!-- ================= 3. IN-DEPTH ANALYTICS & SHAP VIEW ================= -->
+                <!-- ================= 3. CLINICAL STANDARDIZED SCREENERS (STOP-BANG & ESS) ================= -->
+                <div id="view_screening" class="page-view">
+                    <div class="page-heading">
+                        <h2>Standardized Clinical Questionnaires (STOP-BANG & Epworth)</h2>
+                        <p>Evidence-based sleep medicine instruments for Obstructive Sleep Apnea (OSA) and daytime hypersomnolence risk.</p>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                        <!-- STOP-BANG Card -->
+                        <div class="panel">
+                            <div class="panel-header">
+                                <h3>STOP-BANG Questionnaire</h3>
+                                <span class="mono" style="font-size: 0.72rem; color: var(--accent);">OSA Risk Screener</span>
+                            </div>
+                            <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 14px; line-height: 1.5;">
+                                Validated screening tool to identify patients at risk for moderate-to-severe Obstructive Sleep Apnea.
+                            </p>
+
+                            <div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-surface-elevated); padding: 10px 14px; border: 1px solid var(--border-subtle); border-radius: 4px; margin-bottom: 14px;">
+                                <div>
+                                    <span class="vital-label" style="margin: 0;">STOP-BANG TOTAL SCORE</span>
+                                    <div class="mono" style="font-size: 1.25rem; font-weight: 700; color: var(--text-primary);" id="stopBangLiveScoreDisplay">0 / 8</div>
+                                </div>
+                                <span class="mono" id="stopBangRiskBadge" style="font-size: 0.75rem; padding: 4px 10px; border-radius: 3px; background: rgba(86, 169, 131, 0.15); color: var(--status-normal); border: 1px solid var(--status-normal);">
+                                    LOW RISK
+                                </span>
+                            </div>
+
+                            <form id="stopBangForm" onchange="calculateLiveScreeners()">
+                                <div style="display: flex; flex-direction: column; gap: 10px;">
+                                    <label style="display: flex; align-items: flex-start; gap: 10px; font-size: 0.82rem; color: var(--text-primary); cursor: pointer;">
+                                        <input type="checkbox" id="sb_snore" style="margin-top: 3px;">
+                                        <span><strong>S - Snoring:</strong> Do you Snore Loudly (loud enough to be heard through closed doors or your partner elbows you)?</span>
+                                    </label>
+                                    <label style="display: flex; align-items: flex-start; gap: 10px; font-size: 0.82rem; color: var(--text-primary); cursor: pointer;">
+                                        <input type="checkbox" id="sb_tired" style="margin-top: 3px;">
+                                        <span><strong>T - Tired:</strong> Do you often feel Tired, Fatigued, or Sleepy during the daytime?</span>
+                                    </label>
+                                    <label style="display: flex; align-items: flex-start; gap: 10px; font-size: 0.82rem; color: var(--text-primary); cursor: pointer;">
+                                        <input type="checkbox" id="sb_observed" style="margin-top: 3px;">
+                                        <span><strong>O - Observed:</strong> Has anyone Observed you stop breathing or choking/gasping during your sleep?</span>
+                                    </label>
+                                    <label style="display: flex; align-items: flex-start; gap: 10px; font-size: 0.82rem; color: var(--text-primary); cursor: pointer;">
+                                        <input type="checkbox" id="sb_pressure" style="margin-top: 3px;">
+                                        <span><strong>P - Blood Pressure:</strong> Do you have or are you being treated for High Blood Pressure?</span>
+                                    </label>
+                                    <label style="display: flex; align-items: flex-start; gap: 10px; font-size: 0.82rem; color: var(--text-primary); cursor: pointer;">
+                                        <input type="checkbox" id="sb_bmi" style="margin-top: 3px;">
+                                        <span><strong>B - BMI:</strong> Body Mass Index greater than 35 kg/m²?</span>
+                                    </label>
+                                    <label style="display: flex; align-items: flex-start; gap: 10px; font-size: 0.82rem; color: var(--text-primary); cursor: pointer;">
+                                        <input type="checkbox" id="sb_age" style="margin-top: 3px;">
+                                        <span><strong>A - Age:</strong> Age older than 50 years?</span>
+                                    </label>
+                                    <label style="display: flex; align-items: flex-start; gap: 10px; font-size: 0.82rem; color: var(--text-primary); cursor: pointer;">
+                                        <input type="checkbox" id="sb_neck" style="margin-top: 3px;">
+                                        <span><strong>N - Neck:</strong> Shirt collar / neck circumference greater than 40 cm (16 inches)?</span>
+                                    </label>
+                                    <label style="display: flex; align-items: flex-start; gap: 10px; font-size: 0.82rem; color: var(--text-primary); cursor: pointer;">
+                                        <input type="checkbox" id="sb_gender" style="margin-top: 3px;">
+                                        <span><strong>G - Gender:</strong> Biological Sex is Male?</span>
+                                    </label>
+                                </div>
+                            </form>
+                        </div>
+
+                        <!-- Epworth Sleepiness Scale Card -->
+                        <div class="panel">
+                            <div class="panel-header">
+                                <h3>Epworth Sleepiness Scale (ESS)</h3>
+                                <span class="mono" style="font-size: 0.72rem; color: var(--accent);">Daytime Hypersomnolence</span>
+                            </div>
+                            <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 14px; line-height: 1.5;">
+                                Likelihood of dozing off (0 = Never, 1 = Slight, 2 = Moderate, 3 = High chance) in 8 common daytime situations.
+                            </p>
+
+                            <div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-surface-elevated); padding: 10px 14px; border: 1px solid var(--border-subtle); border-radius: 4px; margin-bottom: 14px;">
+                                <div>
+                                    <span class="vital-label" style="margin: 0;">ESS TOTAL SCORE</span>
+                                    <div class="mono" style="font-size: 1.25rem; font-weight: 700; color: var(--text-primary);" id="essLiveScoreDisplay">0 / 24</div>
+                                </div>
+                                <span class="mono" id="essSeverityBadge" style="font-size: 0.75rem; padding: 4px 10px; border-radius: 3px; background: rgba(86, 169, 131, 0.15); color: var(--status-normal); border: 1px solid var(--status-normal);">
+                                    NORMAL SLEEPINESS
+                                </span>
+                            </div>
+
+                            <form id="essForm" onchange="calculateLiveScreeners()">
+                                <div style="display: flex; flex-direction: column; gap: 8px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 6px; border-bottom: 1px solid var(--border-subtle);">
+                                        <span style="font-size: 0.8rem; color: var(--text-primary);">1. Sitting and reading</span>
+                                        <select class="ess-select" id="ess_1" style="width: 110px; font-size: 0.75rem; padding: 3px;">
+                                            <option value="0">0 - Never</option>
+                                            <option value="1">1 - Slight</option>
+                                            <option value="2">2 - Moderate</option>
+                                            <option value="3">3 - High</option>
+                                        </select>
+                                    </div>
+                                    <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 6px; border-bottom: 1px solid var(--border-subtle);">
+                                        <span style="font-size: 0.8rem; color: var(--text-primary);">2. Watching television</span>
+                                        <select class="ess-select" id="ess_2" style="width: 110px; font-size: 0.75rem; padding: 3px;">
+                                            <option value="0">0 - Never</option>
+                                            <option value="1">1 - Slight</option>
+                                            <option value="2">2 - Moderate</option>
+                                            <option value="3">3 - High</option>
+                                        </select>
+                                    </div>
+                                    <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 6px; border-bottom: 1px solid var(--border-subtle);">
+                                        <span style="font-size: 0.8rem; color: var(--text-primary);">3. Sitting, inactive in public (theater/meeting)</span>
+                                        <select class="ess-select" id="ess_3" style="width: 110px; font-size: 0.75rem; padding: 3px;">
+                                            <option value="0">0 - Never</option>
+                                            <option value="1">1 - Slight</option>
+                                            <option value="2">2 - Moderate</option>
+                                            <option value="3">3 - High</option>
+                                        </select>
+                                    </div>
+                                    <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 6px; border-bottom: 1px solid var(--border-subtle);">
+                                        <span style="font-size: 0.8rem; color: var(--text-primary);">4. Passenger in a car for an hour without break</span>
+                                        <select class="ess-select" id="ess_4" style="width: 110px; font-size: 0.75rem; padding: 3px;">
+                                            <option value="0">0 - Never</option>
+                                            <option value="1">1 - Slight</option>
+                                            <option value="2">2 - Moderate</option>
+                                            <option value="3">3 - High</option>
+                                        </select>
+                                    </div>
+                                    <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 6px; border-bottom: 1px solid var(--border-subtle);">
+                                        <span style="font-size: 0.8rem; color: var(--text-primary);">5. Lying down to rest in afternoon</span>
+                                        <select class="ess-select" id="ess_5" style="width: 110px; font-size: 0.75rem; padding: 3px;">
+                                            <option value="0">0 - Never</option>
+                                            <option value="1">1 - Slight</option>
+                                            <option value="2">2 - Moderate</option>
+                                            <option value="3">3 - High</option>
+                                        </select>
+                                    </div>
+                                    <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 6px; border-bottom: 1px solid var(--border-subtle);">
+                                        <span style="font-size: 0.8rem; color: var(--text-primary);">6. Sitting and talking to someone</span>
+                                        <select class="ess-select" id="ess_6" style="width: 110px; font-size: 0.75rem; padding: 3px;">
+                                            <option value="0">0 - Never</option>
+                                            <option value="1">1 - Slight</option>
+                                            <option value="2">2 - Moderate</option>
+                                            <option value="3">3 - High</option>
+                                        </select>
+                                    </div>
+                                    <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 6px; border-bottom: 1px solid var(--border-subtle);">
+                                        <span style="font-size: 0.8rem; color: var(--text-primary);">7. Sitting quietly after lunch without alcohol</span>
+                                        <select class="ess-select" id="ess_7" style="width: 110px; font-size: 0.75rem; padding: 3px;">
+                                            <option value="0">0 - Never</option>
+                                            <option value="1">1 - Slight</option>
+                                            <option value="2">2 - Moderate</option>
+                                            <option value="3">3 - High</option>
+                                        </select>
+                                    </div>
+                                    <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 4px;">
+                                        <span style="font-size: 0.8rem; color: var(--text-primary);">8. In car, stopped for a few minutes in traffic</span>
+                                        <select class="ess-select" id="ess_8" style="width: 110px; font-size: 0.75rem; padding: 3px;">
+                                            <option value="0">0 - Never</option>
+                                            <option value="1">1 - Slight</option>
+                                            <option value="2">2 - Moderate</option>
+                                            <option value="3">3 - High</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Submission Action Bar -->
+                    <div style="margin-top: 18px; display: flex; justify-content: space-between; align-items: center; background: var(--bg-surface); padding: 14px 18px; border: 1px solid var(--border-subtle); border-radius: 4px;">
+                        <div>
+                            <span class="mono" id="screenerSaveStatus" style="font-size: 0.75rem; color: var(--text-secondary);">
+                                Questionnaires are combined directly with nocturnal ML models into your Clinical Referral Dossier.
+                            </span>
+                        </div>
+                        <div style="display: flex; gap: 10px;">
+                            <button type="button" class="btn-outline" onclick="navigate('dashboard')">Return to Dashboard</button>
+                            <button type="button" class="btn-primary" id="btnSaveScreeners" onclick="handleSaveScreeners()">
+                                Save & Sync Clinical Questionnaires
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ================= 4. IN-DEPTH ANALYTICS & SHAP VIEW ================= -->
                 <div id="view_analytics" class="page-view">
                     <div class="page-heading">
                         <h2>In-Depth Longitudinal Analytics & SHAP Attributions</h2>
@@ -713,6 +997,22 @@
                 </div>
             </div>
 
+            <!-- Standardized Clinical Screener Profile -->
+            <div style="background: var(--bg-surface-elevated); padding: 10px 14px; border: 1px solid var(--border-subtle); border-radius: 4px; margin-bottom: 14px; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
+                <div>
+                    <span class="vital-label" style="margin: 0;">STOP-BANG OSA SCREENER</span>
+                    <div class="mono" style="font-size: 0.88rem; font-weight: 600;" id="reportStopBangScore">Score: 0/8 (Low Risk)</div>
+                </div>
+                <div>
+                    <span class="vital-label" style="margin: 0;">EPWORTH SLEEPINESS SCALE</span>
+                    <div class="mono" style="font-size: 0.88rem; font-weight: 600;" id="reportEssScore">Score: 0/24 (Normal)</div>
+                </div>
+                <div>
+                    <span class="vital-label" style="margin: 0;">TRIAGE ASSESSMENT</span>
+                    <div class="mono" style="font-size: 0.88rem; font-weight: 600; color: var(--status-normal);" id="reportTriageStatus">No Acute Cardiovascular Flags</div>
+                </div>
+            </div>
+
             <!-- Layman & Clinical Guidance -->
             <div style="margin: 12px 0;">
                 <span class="vital-label">CLINICAL INTERPRETATION SUMMARY</span>
@@ -747,12 +1047,15 @@
             <!-- Modal Action Buttons (Hidden on Print) -->
             <div class="modal-actions" style="margin-top: 20px; display: flex; justify-content: flex-end; gap: 10px;">
                 <button type="button" class="btn-outline" onclick="closeClinicalReportModal()">Close</button>
+                <button type="button" class="btn-outline" onclick="shareClinicalSummaryWhatsApp()" style="border-color: var(--status-normal); color: var(--status-normal);">
+                    Share on WhatsApp
+                </button>
                 <button type="button" class="btn-primary" onclick="window.print()">Print / Save as PDF</button>
             </div>
         </div>
     </div>
 
     <!-- Script Controller -->
-    <script src="/static/js/app.js?v=2.3"></script>
+    <script src="/static/js/app.js?v=2.4"></script>
 </body>
 </html>
