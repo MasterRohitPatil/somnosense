@@ -19,7 +19,7 @@
             <div>
                 <!-- Brand Header -->
                 <a href="/" class="sidebar-header">
-                    <div class="sidebar-logo">🌙</div>
+                    <img src="/static/img/logo.png" class="brand-logo-img" alt="SomnoSense Logo">
                     <div class="sidebar-brand">
                         <h1>SomnoSense</h1>
                         <span>Clinical Decision Portal</span>
@@ -56,18 +56,27 @@
                 </ul>
             </div>
 
-            <!-- Active User Footer -->
-            <div class="sidebar-user">
-                <div class="user-info" onclick="openAuthModal()" title="Switch User or Sign Out">
-                    <div class="user-avatar" id="sidebarAvatar">RP</div>
-                    <div class="user-details">
-                        <span class="user-name" id="sidebarUserName">Rohit Patil</span>
-                        <span class="user-bmi" id="sidebarUserBMI">BMI: 25.5 · Overweight</span>
+            <!-- Sidebar Footer -->
+            <div class="sidebar-footer">
+                <div class="theme-switcher" onclick="toggleTheme()" title="Switch Light/Dark Mode">
+                    <span id="themeLabel">Light Mode</span>
+                    <div class="theme-icons">
+                        <span id="themeIcon">☀️</span>
                     </div>
                 </div>
-                <button class="btn-secondary" style="padding: 6px 10px; font-size: 0.75rem;" onclick="openAuthModal()" title="Sign Out or Register">
-                    Switch
-                </button>
+
+                <div class="sidebar-user">
+                    <div class="user-info" onclick="openAuthModal()" title="Switch User or Sign Out">
+                        <div class="user-avatar" id="sidebarAvatar">RP</div>
+                        <div class="user-details">
+                            <span class="user-name" id="sidebarUserName">Rohit Patil</span>
+                            <span class="user-bmi" id="sidebarUserBMI">BMI: 25.5 · Overweight</span>
+                        </div>
+                    </div>
+                    <button class="btn-secondary" style="padding: 6px 10px; font-size: 0.75rem;" onclick="openAuthModal()" title="Sign Out or Register">
+                        Switch
+                    </button>
+                </div>
             </div>
         </aside>
 

@@ -198,10 +198,10 @@
 <body style="display: block;">
 
     <!-- Landing Navigation -->
-    <header style="background: rgba(18, 26, 45, 0.85); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border-subtle); position: sticky; top: 0; z-index: 100;">
+    <header style="background: var(--bg-surface); border-bottom: 1px solid var(--border-subtle); position: sticky; top: 0; z-index: 100;">
         <div class="landing-nav">
             <div style="display: flex; align-items: center; gap: 12px;">
-                <div class="sidebar-logo">🌙</div>
+                <img src="/static/img/logo.png" class="brand-logo-img" alt="SomnoSense Logo">
                 <div class="sidebar-brand">
                     <h1>SomnoSense</h1>
                     <span>Clinical Sleep & Cardio Platform</span>
@@ -209,6 +209,9 @@
             </div>
 
             <div style="display: flex; align-items: center; gap: 12px;">
+                <button class="btn-secondary" onclick="toggleTheme()" id="landingThemeBtn" style="padding: 6px 12px; font-size: 0.8rem;">
+                    <span id="themeIcon">☀️</span> <span id="themeLabel">Light</span>
+                </button>
                 <a href="/app" class="btn-secondary">Sign In</a>
                 <a href="/app" class="btn-primary">Launch Patient Portal</a>
             </div>
@@ -345,5 +348,7 @@
         <p style="margin-top: 4px; font-size: 0.78rem;">Designed for educational, research, and non-prescriptive screening demonstration.</p>
     </footer>
 
+    <!-- Script -->
+    <script src="/static/js/app.js"></script>
 </body>
 </html>

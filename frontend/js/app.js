@@ -14,6 +14,30 @@ let currentUser = {
 let shapChartInstance = null;
 let trendChartInstance = null;
 
+// ================= THEME CONTROLLER =================
+function initTheme() {
+    const saved = localStorage.getItem('somnosense-theme') || 'light';
+    setTheme(saved);
+}
+
+function toggleTheme() {
+    const current = document.documentElement.getAttribute('data-theme') || 'light';
+    const next = current === 'dark' ? 'light' : 'dark';
+    setTheme(next);
+}
+
+function setTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('somnosense-theme', theme);
+    const label = document.getElementById('themeLabel');
+    const icon = document.getElementById('themeIcon');
+    if (label) label.textContent = theme === 'dark' ? 'Dark Mode' : 'Light Mode';
+    if (icon) icon.textContent = theme === 'dark' ? '🌙' : '☀️';
+
+    // Rerender charts with correct theme colors
+    if (trendChartInstance) loadDashboardData();
+}
+
 // ================= NAVIGATION CONTROLLER =================
 function navigate(pageId) {
     document.querySelectorAll('.page-view').forEach(p => p.classList.remove('active'));
@@ -478,6 +502,7 @@ async function loadPatientHistory() {
 
 // Initialization
 window.addEventListener('DOMContentLoaded', () => {
+    initTheme();
     updateUserUI();
     loadDashboardData();
 

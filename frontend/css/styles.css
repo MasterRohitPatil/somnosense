@@ -1,40 +1,90 @@
+/* ==========================================================================
+   SOMNOSENSE CLINICAL DESIGN SYSTEM (LIGHT & DARK THEMES)
+   Default: Pure Hospital / Modern Clinical Light Theme
+   ========================================================================== */
+
 :root {
-    --bg-canvas: #090E1A;
-    --bg-surface: #121A2D;
-    --bg-surface-elevated: #1A243D;
-    --border-subtle: #243254;
-    --border-focus: #38BDF8;
+    /* LIGHT THEME (DEFAULT) */
+    --bg-canvas: #F8FAFC;
+    --bg-surface: #FFFFFF;
+    --bg-surface-elevated: #F1F5F9;
+    --border-subtle: #E2E8F0;
+    --border-strong: #CBD5E1;
+    --border-focus: #0284C7;
     
-    --brand-primary: #38BDF8;
-    --brand-accent: #0284C7;
+    --brand-primary: #0284C7;
+    --brand-primary-hover: #0369A1;
+    --brand-accent: #0F766E;
     
-    --text-heading: #F8FAFC;
-    --text-body: #CBD5E1;
+    --text-heading: #0F172A;
+    --text-body: #334155;
     --text-muted: #64748B;
+    --text-subtle: #94A3B8;
     
-    --status-healthy: #10B981;
-    --status-healthy-bg: rgba(16, 185, 129, 0.12);
-    --status-insomnia: #F59E0B;
-    --status-insomnia-bg: rgba(245, 158, 11, 0.12);
-    --status-apnea: #EF4444;
-    --status-apnea-bg: rgba(239, 68, 68, 0.12);
+    --status-healthy: #059669;
+    --status-healthy-bg: #ECFDF5;
+    --status-healthy-border: #A7F3D0;
+    
+    --status-insomnia: #D97706;
+    --status-insomnia-bg: #FFFBEB;
+    --status-insomnia-border: #FDE68A;
+    
+    --status-apnea: #DC2626;
+    --status-apnea-bg: #FEF2F2;
+    --status-apnea-border: #FECACA;
     
     --sidebar-width: 260px;
     --radius-sm: 8px;
     --radius-md: 12px;
     --radius-lg: 16px;
-    --shadow-subtle: 0 4px 20px -2px rgba(0, 0, 0, 0.4);
+    --shadow-card: 0 1px 3px rgba(15, 23, 42, 0.05), 0 1px 2px rgba(15, 23, 42, 0.03);
+    --shadow-elevated: 0 4px 12px rgba(15, 23, 42, 0.08);
     --transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* DARK THEME (TOGGLEABLE) */
+[data-theme="dark"] {
+    --bg-canvas: #0B0F19;
+    --bg-surface: #111827;
+    --bg-surface-elevated: #1F2937;
+    --border-subtle: #1F2937;
+    --border-strong: #374151;
+    --border-focus: #38BDF8;
+    
+    --brand-primary: #38BDF8;
+    --brand-primary-hover: #0284C7;
+    --brand-accent: #14B8A6;
+    
+    --text-heading: #F8FAFC;
+    --text-body: #CBD5E1;
+    --text-muted: #94A3B8;
+    --text-subtle: #64748B;
+    
+    --status-healthy: #10B981;
+    --status-healthy-bg: rgba(16, 185, 129, 0.12);
+    --status-healthy-border: rgba(16, 185, 129, 0.3);
+    
+    --status-insomnia: #F59E0B;
+    --status-insomnia-bg: rgba(245, 158, 11, 0.12);
+    --status-insomnia-border: rgba(245, 158, 11, 0.3);
+    
+    --status-apnea: #EF4444;
+    --status-apnea-bg: rgba(239, 68, 68, 0.12);
+    --status-apnea-border: rgba(239, 68, 68, 0.3);
+    
+    --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.35);
+    --shadow-elevated: 0 8px 24px rgba(0, 0, 0, 0.5);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     background-color: var(--bg-canvas);
     color: var(--text-body);
     min-height: 100vh;
     display: flex;
+    transition: background-color 0.25s ease, color 0.25s ease;
     overflow-x: hidden;
 }
 
@@ -56,41 +106,45 @@ aside.sidebar {
     position: fixed;
     top: 0; bottom: 0; left: 0;
     z-index: 90;
-    padding: 20px 16px;
+    padding: 24px 18px;
+    transition: var(--transition);
 }
 
 .sidebar-header {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding-bottom: 20px;
+    padding-bottom: 22px;
     border-bottom: 1px solid var(--border-subtle);
     margin-bottom: 20px;
     text-decoration: none;
     color: var(--text-heading);
 }
 
-.sidebar-logo {
-    width: 40px; height: 40px;
+.brand-logo-img {
+    width: 36px;
+    height: 36px;
+    object-fit: contain;
     border-radius: var(--radius-sm);
-    background: linear-gradient(135deg, #0284C7 0%, #0369A1 100%);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 22px; color: white;
+    background: var(--bg-surface-elevated);
+    border: 1px solid var(--border-subtle);
+    padding: 2px;
 }
 
 .sidebar-brand h1 {
-    font-family: 'Outfit', sans-serif;
-    font-size: 1.25rem;
+    font-size: 1.15rem;
     font-weight: 700;
-    line-height: 1.1;
+    line-height: 1.15;
+    color: var(--text-heading);
+    letter-spacing: -0.02em;
 }
 
 .sidebar-brand span {
-    font-size: 0.72rem;
+    font-size: 0.7rem;
     color: var(--brand-primary);
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    font-weight: 600;
+    font-weight: 700;
 }
 
 /* Sidebar Nav Links */
@@ -98,7 +152,7 @@ aside.sidebar {
     list-style: none;
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 4px;
     flex: 1;
 }
 
@@ -106,11 +160,11 @@ aside.sidebar {
     width: 100%;
     background: transparent;
     border: none;
-    color: var(--text-muted);
-    font-family: 'Plus Jakarta Sans', sans-serif;
+    color: var(--text-body);
+    font-family: inherit;
     font-size: 0.88rem;
     font-weight: 600;
-    padding: 11px 14px;
+    padding: 10px 14px;
     border-radius: var(--radius-sm);
     cursor: pointer;
     display: flex;
@@ -122,19 +176,55 @@ aside.sidebar {
 
 .nav-item button:hover {
     color: var(--text-heading);
-    background: rgba(255, 255, 255, 0.04);
+    background: var(--bg-surface-elevated);
 }
 
 .nav-item button.active {
     color: var(--brand-primary);
-    background: rgba(56, 189, 248, 0.12);
-    border-left: 3px solid var(--brand-primary);
+    background: rgba(2, 132, 199, 0.08);
+    font-weight: 700;
 }
 
-/* Sidebar Footer (Active Patient Card) */
-.sidebar-user {
-    padding-top: 16px;
+[data-theme="dark"] .nav-item button.active {
+    background: rgba(56, 189, 248, 0.12);
+}
+
+/* Sidebar Footer (Active Patient + Theme Toggle) */
+.sidebar-footer {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding-top: 18px;
     border-top: 1px solid var(--border-subtle);
+}
+
+/* Theme Switcher Toggle */
+.theme-switcher {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--bg-surface-elevated);
+    border: 1px solid var(--border-subtle);
+    padding: 6px 12px;
+    border-radius: 30px;
+    cursor: pointer;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-body);
+    transition: var(--transition);
+}
+
+.theme-switcher:hover {
+    border-color: var(--brand-primary);
+}
+
+.theme-icons {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.sidebar-user {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -151,12 +241,12 @@ aside.sidebar {
 }
 
 .user-avatar {
-    width: 34px; height: 34px;
+    width: 32px; height: 32px;
     border-radius: 50%;
-    background: #0284C7;
+    background: var(--brand-primary);
     color: white;
     display: flex; align-items: center; justify-content: center;
-    font-size: 0.82rem; font-weight: 700;
+    font-size: 0.78rem; font-weight: 700;
     flex-shrink: 0;
 }
 
@@ -177,7 +267,7 @@ aside.sidebar {
 
 .user-bmi {
     font-size: 0.72rem;
-    color: var(--brand-primary);
+    color: var(--text-muted);
 }
 
 /* ================= MAIN CONTENT AREA ================= */
@@ -189,7 +279,7 @@ aside.sidebar {
     min-height: 100vh;
 }
 
-/* Top App Header */
+/* Topbar */
 .app-topbar {
     background: var(--bg-surface);
     border-bottom: 1px solid var(--border-subtle);
@@ -200,26 +290,21 @@ aside.sidebar {
     position: sticky;
     top: 0;
     z-index: 80;
-}
-
-.topbar-left {
-    display: flex;
-    align-items: center;
-    gap: 12px;
+    transition: var(--transition);
 }
 
 .badge-source {
     font-size: 0.75rem;
     padding: 4px 10px;
     border-radius: 20px;
-    background: rgba(56, 189, 248, 0.1);
-    border: 1px solid rgba(56, 189, 248, 0.3);
-    color: var(--brand-primary);
+    background: var(--bg-surface-elevated);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-body);
     font-weight: 600;
 }
 
 .content-container {
-    padding: 28px 32px 40px 32px;
+    padding: 30px 36px 48px 36px;
     flex: 1;
     max-width: 1400px;
     width: 100%;
@@ -228,7 +313,7 @@ aside.sidebar {
 /* Pages / Views */
 .page-view {
     display: none;
-    animation: fadeIn 0.2s ease-in-out;
+    animation: fadeIn 0.18s ease-in-out;
 }
 
 .page-view.active {
@@ -236,7 +321,7 @@ aside.sidebar {
 }
 
 @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(4px); }
+    from { opacity: 0; transform: translateY(3px); }
     to { opacity: 1; transform: translateY(0); }
 }
 
@@ -250,10 +335,10 @@ aside.sidebar {
 }
 
 .page-header h2 {
-    font-family: 'Outfit', sans-serif;
-    font-size: 1.6rem;
+    font-size: 1.55rem;
     font-weight: 700;
     color: var(--text-heading);
+    letter-spacing: -0.02em;
 }
 
 .page-header p {
@@ -266,7 +351,7 @@ aside.sidebar {
 .grid-2 {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 24px;
+    gap: 20px;
 }
 
 @media (max-width: 1100px) {
@@ -277,20 +362,20 @@ aside.sidebar {
     background: var(--bg-surface);
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-md);
-    padding: 24px;
-    box-shadow: var(--shadow-subtle);
+    padding: 22px;
+    box-shadow: var(--shadow-card);
+    transition: var(--transition);
 }
 
 .card-title {
-    font-family: 'Outfit', sans-serif;
-    font-size: 1.15rem;
-    font-weight: 600;
+    font-size: 1.05rem;
+    font-weight: 700;
     color: var(--text-heading);
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding-bottom: 14px;
-    margin-bottom: 18px;
+    padding-bottom: 12px;
+    margin-bottom: 16px;
     border-bottom: 1px solid var(--border-subtle);
 }
 
@@ -298,8 +383,8 @@ aside.sidebar {
 .stats-grid-4 {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 16px;
-    margin-bottom: 24px;
+    gap: 14px;
+    margin-bottom: 20px;
 }
 
 @media (max-width: 900px) {
@@ -307,12 +392,13 @@ aside.sidebar {
 }
 
 .stat-box {
-    background: var(--bg-surface-elevated);
+    background: var(--bg-surface);
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-sm);
     padding: 16px;
     display: flex;
     flex-direction: column;
+    box-shadow: var(--shadow-card);
 }
 
 .stat-box .label {
@@ -320,57 +406,57 @@ aside.sidebar {
     text-transform: uppercase;
     font-weight: 700;
     color: var(--text-muted);
+    letter-spacing: 0.04em;
 }
 
 .stat-box .value {
-    font-family: 'Outfit', sans-serif;
-    font-size: 1.5rem;
+    font-size: 1.45rem;
     font-weight: 800;
     color: var(--text-heading);
     margin: 4px 0;
+    letter-spacing: -0.02em;
 }
 
 .stat-box .subtext {
-    font-size: 0.74rem;
+    font-size: 0.75rem;
     font-weight: 600;
 }
 
 /* Diagnosis Banner */
 .diagnosis-banner {
-    padding: 20px;
+    padding: 18px 22px;
     border-radius: var(--radius-md);
-    border-left: 5px solid transparent;
+    border: 1px solid transparent;
     margin-bottom: 20px;
     display: flex;
     align-items: center;
     justify-content: space-between;
 }
 
-.diagnosis-banner.healthy { background: var(--status-healthy-bg); border-left-color: var(--status-healthy); }
+.diagnosis-banner.healthy { background: var(--status-healthy-bg); border-color: var(--status-healthy-border); }
 .diagnosis-banner.healthy .title { color: var(--status-healthy); }
 
-.diagnosis-banner.insomnia { background: var(--status-insomnia-bg); border-left-color: var(--status-insomnia); }
+.diagnosis-banner.insomnia { background: var(--status-insomnia-bg); border-color: var(--status-insomnia-border); }
 .diagnosis-banner.insomnia .title { color: var(--status-insomnia); }
 
-.diagnosis-banner.apnea { background: var(--status-apnea-bg); border-left-color: var(--status-apnea); }
+.diagnosis-banner.apnea { background: var(--status-apnea-bg); border-color: var(--status-apnea-border); }
 .diagnosis-banner.apnea .title { color: var(--status-apnea); }
 
 .diagnosis-banner .title {
-    font-family: 'Outfit', sans-serif;
-    font-size: 1.6rem;
+    font-size: 1.5rem;
     font-weight: 800;
+    letter-spacing: -0.02em;
 }
 
 /* Buttons */
 .btn-primary {
-    background: #0284C7;
+    background: var(--brand-primary);
     color: white;
     border: none;
     border-radius: var(--radius-sm);
     padding: 10px 18px;
-    font-family: 'Outfit', sans-serif;
-    font-size: 0.92rem;
-    font-weight: 700;
+    font-size: 0.9rem;
+    font-weight: 600;
     cursor: pointer;
     display: inline-flex;
     align-items: center;
@@ -378,14 +464,14 @@ aside.sidebar {
     transition: var(--transition);
 }
 
-.btn-primary:hover { background: #0369A1; }
+.btn-primary:hover { background: var(--brand-primary-hover); }
 
 .btn-secondary {
-    background: var(--bg-surface-elevated);
-    border: 1px solid var(--border-subtle);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-strong);
     color: var(--text-body);
     border-radius: var(--radius-sm);
-    padding: 10px 16px;
+    padding: 9px 16px;
     font-size: 0.85rem;
     font-weight: 600;
     cursor: pointer;
@@ -419,25 +505,25 @@ aside.sidebar {
 label {
     font-size: 0.82rem;
     font-weight: 600;
-    color: var(--text-body);
+    color: var(--text-heading);
 }
 
 input[type="text"], input[type="email"], input[type="password"], input[type="number"], input[type="date"], select, textarea {
     width: 100%;
-    background: var(--bg-surface-elevated);
-    border: 1px solid var(--border-subtle);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-strong);
     border-radius: var(--radius-sm);
-    padding: 10px 14px;
+    padding: 9px 12px;
     color: var(--text-heading);
     font-family: inherit;
     font-size: 0.88rem;
     outline: none;
-    transition: border-color 0.2s ease;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 input:focus, select:focus, textarea:focus {
     border-color: var(--border-focus);
-    box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15);
+    box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
 }
 
 textarea { min-height: 85px; }
@@ -446,7 +532,7 @@ textarea { min-height: 85px; }
 .modal-overlay {
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(0, 0, 0, 0.75);
+    background: rgba(15, 23, 42, 0.6);
     backdrop-filter: blur(4px);
     z-index: 1000;
     display: none;
@@ -464,5 +550,5 @@ textarea { min-height: 85px; }
     width: 100%;
     max-width: 480px;
     padding: 28px;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+    box-shadow: var(--shadow-elevated);
 }
